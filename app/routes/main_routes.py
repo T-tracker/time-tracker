@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
-from flask_login import current_user
+from flask_login import current_user, login_required
 from app import db
 from app.models import User, Category, Event, Template
 from app.auth import login_required
@@ -9,38 +9,39 @@ import json
 main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
-def index():
-    return render_template('base.html')
-
-@main_bp.route('/dashboard')
 @login_required
-def dashboard():
-    """Главная страница личного кабинета"""
-    # Статистика пользователя
-    stats = {
-        'categories': Category.query.filter_by(user_id=current_user.id).count(),
-        'events_today': Event.query.filter(
-            Event.user_id == current_user.id,
-            Event.start_time >= datetime.utcnow().date(),
-            Event.start_time < datetime.utcnow().date() + timedelta(days=1)
-        ).count(),
-        'total_events': Event.query.filter_by(user_id=current_user.id).count(),
-        'templates': Template.query.filter_by(user_id=current_user.id).count()
-    }
+def index():
+    """Главная страница - теперь это расписание"""
+    return redirect(url_for('main.schedule'))
+
+@main_bp.route('/schedule')
+@login_required
+def schedule():
+    """Страница с недельным расписанием и графиками"""
+    today = datetime.now().date()
+    start_of_week = today - timedelta(days=today.weekday())
     
-    # Последние события
-    recent_events = Event.query.filter_by(
-        user_id=current_user.id
-    ).order_by(Event.start_time.desc()).limit(5).all()
+    # Создаем список дней недели
+    days = []
+    for i in range(7):
+        day_date = start_of_week + timedelta(days=i)
+        days.append({
+            'name': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 
+                    'Пятница', 'Суббота', 'Воскресенье'][i],
+            'date': day_date.strftime('%d.%m.%Y'),
+            'full_date': day_date.strftime('%Y-%m-%d'),
+            'short_name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i]
+        })
     
-    # Категории для формы
-    categories = Category.query.filter_by(user_id=current_user.id).all()
+    # Формат для input type="week"
+    week_number = today.isocalendar()[1]
+    current_week = f"{today.year}-W{week_number:02d}"
     
-    return render_template('dashboard.html', 
-                         stats=stats, 
-                         recent_events=recent_events,
-                         categories=categories,
-                         user=current_user)
+    return render_template('schedule.html', 
+                          days=days, 
+                          current_week=current_week)
+
+# ... остальные функции (profile, manage_categories и т.д.) оставьте без изменений
 
 @main_bp.route('/profile')
 @login_required
@@ -138,6 +139,52 @@ def manage_events():
     categories = Category.query.filter_by(user_id=current_user.id).all()
     return render_template('events.html', categories=categories)
 
+@main_bp.route('/templates', methods=['GET', 'POST'])
+@login_required
+def manage_templates():
+    """Управление шаблонами пользователя"""
+    if request.method == 'POST':
+        name = request.form.get('name')
+        category_id = request.form.get('category_id')
+        duration_minutes = request.form.get('duration_minutes', 60)
+        description = request.form.get('description', '')
+        
+        if not name or not category_id:
+            flash('Название и категория обязательны', 'danger')
+            return redirect(url_for('main.manage_templates'))
+        
+        # Проверяем, что категория принадлежит пользователю
+        category = Category.query.filter_by(
+            id=category_id, 
+            user_id=current_user.id
+        ).first()
+        
+        if not category:
+            flash('Выберите корректную категорию', 'danger')
+            return redirect(url_for('main.manage_templates'))
+        
+        template = Template(
+            name=name,
+            category_id=category_id,
+            duration_minutes=int(duration_minutes),
+            description=description,
+            user_id=current_user.id
+        )
+        
+        db.session.add(template)
+        db.session.commit()
+        
+        flash(f'Шаблон "{name}" создан!', 'success')
+        return redirect(url_for('main.dashboard'))
+    
+    # Получаем все шаблоны пользователя
+    templates = Template.query.filter_by(user_id=current_user.id).all()
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    
+    return render_template('templates.html', 
+                         templates=templates, 
+                         categories=categories)
+    
 @main_bp.route('/api/my/stats')
 @login_required
 def api_my_stats():

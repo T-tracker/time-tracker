@@ -1,0 +1,2162 @@
+{% extends "base.html" %}
+
+{% block title %}Расписание - Time Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Основные стили */
+    .main-content {
+        display: flex;
+        gap: 20px;
+        margin-top: 20px;
+    }
+    
+    .schedule-section {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .right-sidebar {
+        width: 350px;
+        min-width: 350px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* Панель управления */
+    .schedule-controls {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
+    }
+    
+    /* Таблица расписания с раздельными колонками */
+    .schedule-container {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+        overflow-x: auto;
+        width: 100%;
+    }
+    
+    .schedule-header {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    
+    .schedule-table {
+        min-width: 1000px;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .time-column {
+        width: 80px;
+        background-color: #f8f9fa;
+        font-size: 0.85rem;
+        color: #666;
+        text-align: center;
+        vertical-align: top;
+        padding: 0.5rem;
+        border-right: 1px solid #dee2e6;
+        position: sticky;
+        left: 0;
+        z-index: 50;
+    }
+    
+    .day-column {
+        width: 140px;
+        vertical-align: top;
+        border-right: 1px solid #dee2e6;
+        position: relative;
+    }
+    
+    .day-header {
+        background-color: #e9ecef;
+        padding: 0.75rem;
+        font-weight: 600;
+        text-align: center;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 60px;
+        z-index: 80;
+    }
+    
+    .plan-column {
+        background-color: rgba(25, 135, 84, 0.05);
+        border-bottom: 1px solid rgba(25, 135, 84, 0.1);
+        height: 25px; /* Уменьшенная высота */
+        padding: 0;
+        position: relative;
+        cursor: pointer;
+    }
+    
+    .fact-column {
+        background-color: rgba(13, 110, 253, 0.05);
+        border-bottom: 1px solid rgba(13, 110, 253, 0.1);
+        height: 25px; /* Уменьшенная высота */
+        padding: 0;
+        position: relative;
+        cursor: pointer;
+    }
+    
+    .plan-header {
+        background-color: #d1e7dd;
+        color: #0f5132;
+        padding: 0.4rem;
+        text-align: center;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-bottom: 1px solid #badbcc;
+        position: sticky;
+        top: 105px;
+        z-index: 70;
+    }
+    
+    .fact-header {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        padding: 0.4rem;
+        text-align: center;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-bottom: 1px solid #bee5eb;
+        position: sticky;
+        top: 105px;
+        z-index: 70;
+    }
+    
+    /* Уменьшенные ячейки */
+    .time-slot-row {
+        height: 25px;
+    }
+    
+    .plan-event, .fact-event {
+        position: absolute;
+        left: 1px;
+        right: 1px;
+        border-radius: 3px;
+        padding: 1px 4px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        border-left: 3px solid;
+        z-index: 10;
+        line-height: 1.2;
+    }
+    
+    .plan-event {
+        background-color: rgba(25, 135, 84, 0.15);
+        border-color: #198754;
+    }
+    
+    .fact-event {
+        background-color: rgba(13, 110, 253, 0.15);
+        border-color: #0d6efd;
+    }
+    
+    /* Выделение ячеек */
+    .plan-column.selected {
+        background-color: rgba(25, 135, 84, 0.25);
+        box-shadow: inset 0 0 0 2px #198754;
+    }
+    
+    .fact-column.selected {
+        background-color: rgba(13, 110, 253, 0.25);
+        box-shadow: inset 0 0 0 2px #0d6efd;
+    }
+    
+    /* Текущее время */
+    .current-time-slot {
+        background-color: rgba(255, 193, 7, 0.15);
+        position: relative;
+    }
+    
+    .current-time-slot::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 2px;
+        background-color: #ffc107;
+        z-index: 5;
+    }
+    
+    /* Панель массового заполнения */
+    .bulk-edit-panel {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        display: none;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .bulk-edit-panel.show {
+        display: flex;
+        animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    }
+    
+    .selected-count {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-right: 10px;
+    }
+    
+    /* Категории - правая панель */
+    .categories-panel {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+    
+    .categories-list {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-top: 1rem;
+    }
+    
+    .category-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 8px;
+        background: #f8f9fa;
+        border-left: 4px solid;
+        transition: all 0.2s;
+    }
+    
+    .category-item:hover {
+        background: #e9ecef;
+    }
+    
+    .category-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin-right: 10px;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .category-name {
+        font-weight: 600;
+        margin-bottom: 2px;
+    }
+    
+    /* График продуктивности */
+    .productivity-chart {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Колесо баланса */
+    .balance-wheel-container {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        height: 350px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .wheel-canvas {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+    }
+    
+    #balanceWheel {
+        max-width: 100%;
+        max-height: 100%;
+    }
+    
+    .wheel-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 1rem;
+        font-size: 0.8rem;
+    }
+    
+    .wheel-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .wheel-period-selector {
+        margin-bottom: 1rem;
+    }
+    
+    /* Быстрые действия */
+    .quick-actions {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+    
+    .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-top: 1rem;
+    }
+    
+    .action-btn {
+        padding: 0.75rem;
+        border-radius: 10px;
+        border: 1px solid #e9ecef;
+        background: #f8f9fa;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s;
+        cursor: pointer;
+        text-align: center;
+    }
+    
+    .action-btn:hover {
+        background: #e9ecef;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .action-icon {
+        font-size: 1.5rem;
+        color: var(--primary-color);
+    }
+    
+    .action-text {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    /* Индикатор времени */
+    .current-time-indicator {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: #ff6b6b;
+        z-index: 20;
+        pointer-events: none;
+    }
+    
+    .current-time-indicator::after {
+        content: '';
+        position: absolute;
+        top: -3px;
+        left: -5px;
+        width: 8px;
+        height: 8px;
+        background-color: #ff6b6b;
+        border-radius: 50%;
+    }
+    
+    /* Адаптивность */
+    @media (max-width: 1200px) {
+        .main-content {
+            flex-direction: column;
+        }
+        
+        .right-sidebar {
+            width: 100%;
+            min-width: auto;
+        }
+        
+        .schedule-container {
+            min-width: 100%;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .schedule-container {
+            border-radius: 10px;
+        }
+        
+        .schedule-controls {
+            padding: 0.75rem;
+        }
+        
+        .plan-header, .fact-header {
+            font-size: 0.8rem;
+            padding: 0.3rem;
+        }
+        
+        .plan-column, .fact-column {
+            height: 22px;
+        }
+        
+        .bulk-edit-panel {
+            flex-wrap: wrap;
+            bottom: 10px;
+            padding: 0.75rem;
+        }
+        
+        .actions-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Панель управления -->
+    <div class="schedule-controls">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h4 class="mb-0">Расписание</h4>
+                <small class="text-muted">Шаг 15 минут</small>
+            </div>
+            
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <!-- Кнопка настроек времени -->
+                <button class="btn btn-outline-secondary" id="timeSettingsBtn">
+                    <i class="bi bi-clock"></i>
+                </button>
+                
+                <!-- Улучшенный виджет выбора недели -->
+                <div class="input-group" style="width: 300px;">
+                    <span class="input-group-text"><i class="bi bi-calendar-week"></i></span>
+                    <input type="week" class="form-control" id="weekPicker">
+                    <button class="btn btn-outline-secondary" type="button" id="prevWeekBtn">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" type="button" id="nextWeekBtn">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" type="button" id="currentWeekBtn">
+                        Сегодня
+                    </button>
+                </div>
+                
+                <!-- Кнопка сохранения как шаблона -->
+                <button class="btn btn-outline-success" id="saveTemplateBtn">
+                    <i class="bi bi-save me-1"></i>Сохранить как шаблон
+                </button>
+                
+                <!-- Кнопка шаблонов -->
+                <button class="btn btn-primary" id="templatesBtn">
+                    <i class="bi bi-collection me-1"></i>Шаблоны
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Панель массового заполнения -->
+    <div class="bulk-edit-panel" id="bulkEditPanel">
+        <div class="selected-count" id="selectedCount">0 ячеек выбрано</div>
+        <select class="form-select form-select-sm" id="bulkCategorySelect" style="width: 180px;">
+            <option value="">Выберите категорию</option>
+        </select>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-success" id="bulkPlanBtn">Заполнить как План</button>
+            <button class="btn btn-primary" id="bulkFactBtn">Заполнить как Факт</button>
+            <button class="btn btn-secondary" id="bulkClearBtn">Очистить</button>
+        </div>
+        <button class="btn btn-outline-danger btn-sm" id="bulkCancelBtn">Отмена</button>
+    </div>
+    
+    <!-- Основной контент -->
+    <div class="main-content">
+        <!-- Левая часть: таблица расписания -->
+        <div class="schedule-section">
+            <div class="schedule-container">
+                <div class="schedule-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">Недельное расписание</h5>
+                            <small id="weekRange"></small>
+                        </div>
+                        <div class="text-end">
+                            <small class="d-block"><span class="badge bg-success">План</span> <span class="badge bg-primary">Факт</span></small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="schedule-table" id="scheduleTable">
+                        <thead>
+                            <tr>
+                                <th class="time-column">Время</th>
+                                {% for day in days %}
+                                <th class="day-column">
+                                    <div class="day-header">
+                                        {{ day.name }}<br>
+                                        <small class="day-date" data-day="{{ day.index }}">{{ day.date }}</small>
+                                    </div>
+                                    <div class="plan-header">План</div>
+                                    <div class="fact-header">Факт</div>
+                                </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleBody">
+                            <!-- Время будет заполнено JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Правая часть: категории и графики -->
+        <div class="right-sidebar">
+            <!-- Панель категорий -->
+            <div class="categories-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Категории</h5>
+                    <button class="btn btn-sm btn-primary" id="addCategoryBtn">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+                <div class="categories-list" id="categoriesList">
+                    <!-- Категории будут загружены через JavaScript -->
+                </div>
+            </div>
+            
+            <!-- График продуктивности -->
+            <div class="productivity-chart">
+                <h5>График продуктивности</h5>
+                <div class="chart-container" id="productivityChart">
+                    <!-- График будет создан JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Колесо баланса -->
+            <div class="balance-wheel-container">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Колесо баланса</h5>
+                    <select class="form-select form-select-sm wheel-period-selector" style="width: 150px;" id="wheelPeriod">
+                        <option value="day">Текущий день</option>
+                        <option value="week" selected>Текущая неделя</option>
+                    </select>
+                </div>
+                <div class="wheel-canvas">
+                    <canvas id="balanceWheel" width="250" height="250"></canvas>
+                </div>
+                <div class="wheel-legend" id="wheelLegend">
+                    <!-- Легенда будет создана JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Быстрые действия -->
+            <div class="quick-actions">
+                <h5>Быстрые действия</h5>
+                <div class="actions-grid">
+                    <div class="action-btn" id="quickEventBtn">
+                        <i class="bi bi-plus-circle action-icon"></i>
+                        <span class="action-text">Быстрое событие</span>
+                    </div>
+                    <div class="action-btn" id="clearDayBtn">
+                        <i class="bi bi-x-circle action-icon"></i>
+                        <span class="action-text">Очистить день</span>
+                    </div>
+                    <div class="action-btn" id="copyDayBtn">
+                        <i class="bi bi-copy action-icon"></i>
+                        <span class="action-text">Копировать день</span>
+                    </div>
+                    <div class="action-btn" id="statsBtn">
+                        <i class="bi bi-graph-up action-icon"></i>
+                        <span class="action-text">Статистика</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальные окна -->
+
+<!-- Настройки времени -->
+<div class="modal fade" id="timeSettingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Настройки времени</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="timeSettingsForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="startTimeInput" class="form-label">Время начала дня</label>
+                        <input type="time" class="form-control" id="startTimeInput" value="04:00" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="endTimeInput" class="form-label">Время окончания дня</label>
+                        <input type="time" class="form-control" id="endTimeInput" value="22:30" required>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="saveTimeSettings">
+                        <label class="form-check-label" for="saveTimeSettings">
+                            Сохранить настройки для будущих сессий
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Применить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Добавление события -->
+<div class="modal fade" id="addEventModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить событие</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addEventForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Тип события</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="eventType" id="typePlan" value="plan" checked>
+                                <label class="btn btn-outline-success" for="typePlan">План</label>
+                                
+                                <input type="radio" class="btn-check" name="eventType" id="typeFact" value="fact">
+                                <label class="btn btn-outline-primary" for="typeFact">Факт</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="categorySelect" class="form-label">Категория</label>
+                            <select class="form-select" id="categorySelect" required>
+                                <option value="">Выберите категорию</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="startDate" class="form-label">Дата начала</label>
+                            <input type="date" class="form-control" id="startDate" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="startTime" class="form-label">Время начала</label>
+                            <select class="form-select" id="startTime" required></select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="endDate" class="form-label">Дата окончания</label>
+                            <input type="date" class="form-control" id="endDate" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="endTime" class="form-label">Время окончания</label>
+                            <select class="form-select" id="endTime" required></select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="eventDescription" class="form-label">Описание (необязательно)</label>
+                        <textarea class="form-control" id="eventDescription" rows="2" placeholder="Дополнительные детали..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Добавить событие</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Управление категориями -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Новая категория</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="categoryForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Название категории</label>
+                        <input type="text" class="form-control" id="categoryName" required placeholder="Например: Работа, Учёба, Спорт...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryColor" class="form-label">Цвет категории</label>
+                        <div class="d-flex flex-wrap gap-2" id="colorPicker">
+                            <!-- Цвета будут добавлены JavaScript -->
+                        </div>
+                        <input type="hidden" id="selectedColor" value="#4361ee" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryDescription" class="form-label">Описание (необязательно)</label>
+                        <textarea class="form-control" id="categoryDescription" rows="2" placeholder="Описание категории..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать категорию</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Управление шаблонами -->
+<div class="modal fade" id="templatesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Управление шаблонами</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="templateName" placeholder="Название нового шаблона">
+                        <button class="btn btn-primary" id="createTemplateBtn">Создать шаблон</button>
+                    </div>
+                    <small class="text-muted">Создает шаблон из текущего плана недели</small>
+                </div>
+                
+                <div class="list-group" id="templatesList">
+                    <!-- Шаблоны будут загружены через JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Быстрое событие -->
+<div class="modal fade" id="quickEventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Быстрое событие</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="quickEventForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="quickCategory" class="form-label">Категория</label>
+                        <select class="form-select" id="quickCategory" required></select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="quickType" class="form-label">Тип</label>
+                        <select class="form-select" id="quickType">
+                            <option value="plan">План</option>
+                            <option value="fact">Факт</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="quickDuration" class="form-label">Длительность</label>
+                        <select class="form-select" id="quickDuration">
+                            <option value="15">15 минут</option>
+                            <option value="30">30 минут</option>
+                            <option value="60" selected>1 час</option>
+                            <option value="120">2 часа</option>
+                            <option value="180">3 часа</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="quickToday" checked>
+                        <label class="form-check-label" for="quickToday">
+                            Добавить на сегодня
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Подтверждение удаления -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Подтверждение удаления</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteMessage">Вы уверены, что хотите удалить эту категорию? Все связанные события будут очищены.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Удалить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Конфигурация
+    const config = {
+        startHour: 4,
+        endHour: 22.5,
+        slotMinutes: 15,
+        slotHeight: 25
+    };
+    
+    // Состояние приложения
+    const state = {
+        selectedCells: new Set(),
+        categories: [],
+        events: [],
+        templates: [],
+        isCtrlPressed: false,
+        isShiftPressed: false,
+        lastSelectedCell: null,
+        timeSettings: {
+            startHour: localStorage.getItem('startHour') || 4,
+            endHour: localStorage.getItem('endHour') || 22.5
+        }
+    };
+    
+    // Элементы DOM
+    const elements = {
+        scheduleBody: document.getElementById('scheduleBody'),
+        scheduleTable: document.getElementById('scheduleTable'),
+        weekPicker: document.getElementById('weekPicker'),
+        weekRange: document.getElementById('weekRange'),
+        currentWeekBtn: document.getElementById('currentWeekBtn'),
+        prevWeekBtn: document.getElementById('prevWeekBtn'),
+        nextWeekBtn: document.getElementById('nextWeekBtn'),
+        timeSettingsBtn: document.getElementById('timeSettingsBtn'),
+        saveTemplateBtn: document.getElementById('saveTemplateBtn'),
+        templatesBtn: document.getElementById('templatesBtn'),
+        addCategoryBtn: document.getElementById('addCategoryBtn'),
+        bulkEditPanel: document.getElementById('bulkEditPanel'),
+        selectedCount: document.getElementById('selectedCount'),
+        bulkCategorySelect: document.getElementById('bulkCategorySelect'),
+        bulkPlanBtn: document.getElementById('bulkPlanBtn'),
+        bulkFactBtn: document.getElementById('bulkFactBtn'),
+        bulkClearBtn: document.getElementById('bulkClearBtn'),
+        bulkCancelBtn: document.getElementById('bulkCancelBtn'),
+        categoriesList: document.getElementById('categoriesList'),
+        categorySelect: document.getElementById('categorySelect'),
+        quickCategory: document.getElementById('quickCategory'),
+        balanceWheel: document.getElementById('balanceWheel'),
+        wheelPeriod: document.getElementById('wheelPeriod'),
+        wheelLegend: document.getElementById('wheelLegend'),
+        quickEventBtn: document.getElementById('quickEventBtn'),
+        clearDayBtn: document.getElementById('clearDayBtn'),
+        copyDayBtn: document.getElementById('copyDayBtn'),
+        statsBtn: document.getElementById('statsBtn')
+    };
+    
+    // Инициализация
+    init();
+    
+    async function init() {
+        loadTimeSettings();
+        initSchedule();
+        initTimeSelects();
+        await loadCategories();
+        await loadEvents();
+        initEventHandlers();
+        initCurrentTimeIndicator();
+        updateWeekRange();
+    }
+    
+    // Раздел 1.1: Двухколоночная структура дня
+    function initSchedule() {
+        elements.scheduleBody.innerHTML = '';
+        
+        const startHour = parseFloat(state.timeSettings.startHour);
+        const endHour = parseFloat(state.timeSettings.endHour);
+        
+        for (let hour = startHour; hour < endHour; hour += config.slotMinutes / 60) {
+            const hourInt = Math.floor(hour);
+            const minute = (hour - hourInt) * 60;
+            const timeString = `${hourInt.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+            const isHourMark = minute === 0;
+            
+            const row = document.createElement('tr');
+            row.className = 'time-slot-row';
+            if (isHourMark) row.classList.add('hour-marker');
+            
+            // Колонка времени
+            const timeCell = document.createElement('td');
+            timeCell.className = 'time-column';
+            timeCell.textContent = timeString;
+            row.appendChild(timeCell);
+            
+            // Колонки для каждого дня (раздельные колонки План/Факт)
+            for (let day = 0; day < 7; day++) {
+                const planCell = document.createElement('td');
+                planCell.className = 'plan-column';
+                planCell.dataset.time = timeString;
+                planCell.dataset.day = day;
+                planCell.dataset.type = 'plan';
+                planCell.dataset.id = `${day}-${timeString}-plan`;
+                
+                const factCell = document.createElement('td');
+                factCell.className = 'fact-column';
+                factCell.dataset.time = timeString;
+                factCell.dataset.day = day;
+                factCell.dataset.type = 'fact';
+                factCell.dataset.id = `${day}-${timeString}-fact`;
+                
+                const dayCell = document.createElement('td');
+                dayCell.className = 'day-column';
+                dayCell.appendChild(planCell);
+                dayCell.appendChild(factCell);
+                
+                row.appendChild(dayCell);
+            }
+            
+            elements.scheduleBody.appendChild(row);
+        }
+        
+        updateCurrentTimeHighlight();
+    }
+    
+    // Раздел 1.2: Настройка временного интервала
+    function loadTimeSettings() {
+        const savedStart = localStorage.getItem('scheduleStartTime');
+        const savedEnd = localStorage.getItem('scheduleEndTime');
+        
+        if (savedStart && savedEnd) {
+            const [startH, startM] = savedStart.split(':').map(Number);
+            const [endH, endM] = savedEnd.split(':').map(Number);
+            
+            state.timeSettings.startHour = startH + startM / 60;
+            state.timeSettings.endHour = endH + endM / 60;
+            
+            document.getElementById('startTimeInput').value = savedStart;
+            document.getElementById('endTimeInput').value = savedEnd;
+        }
+    }
+    
+    // Раздел 1.4-1.5: Выбор и групповая обработка ячеек
+    function initSelectionHandlers() {
+        elements.scheduleTable.addEventListener('click', handleCellClick);
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+    }
+    
+    function handleCellClick(event) {
+        const cell = event.target.closest('.plan-column, .fact-column');
+        if (!cell) return;
+        
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const cellId = cell.dataset.id;
+        
+        if (state.isCtrlPressed || event.ctrlKey || event.metaKey) {
+            // Ctrl+Click: Добавить/удалить из выбора
+            toggleCellSelection(cell, cellId);
+        } else if (state.isShiftPressed && state.lastSelectedCell) {
+            // Shift+Click: Выделить диапазон
+            selectCellRange(state.lastSelectedCell, cell);
+        } else {
+            // Одиночный клик: Очистить и выбрать
+            clearSelection();
+            selectCell(cell, cellId);
+        }
+        
+        state.lastSelectedCell = cell;
+        updateBulkEditPanel();
+    }
+    
+    function toggleCellSelection(cell, cellId) {
+        if (state.selectedCells.has(cellId)) {
+            state.selectedCells.delete(cellId);
+            cell.classList.remove('selected');
+        } else {
+            state.selectedCells.add(cellId);
+            cell.classList.add('selected');
+        }
+    }
+    
+    function selectCell(cell, cellId) {
+        state.selectedCells.add(cellId);
+        cell.classList.add('selected');
+    }
+    
+    function selectCellRange(startCell, endCell) {
+        const startCoords = getCellCoordinates(startCell);
+        const endCoords = getCellCoordinates(endCell);
+        
+        const minDay = Math.min(startCoords.day, endCoords.day);
+        const maxDay = Math.max(startCoords.day, endCoords.day);
+        const minTime = Math.min(startCoords.timeValue, endCoords.timeValue);
+        const maxTime = Math.max(startCoords.timeValue, endCoords.timeValue);
+        const type = startCell.dataset.type;
+        
+        // Выбираем все ячейки в диапазоне
+        for (let day = minDay; day <= maxDay; day++) {
+            for (let time = minTime; time <= maxTime; time += 15) {
+                const hours = Math.floor(time / 60);
+                const minutes = time % 60;
+                const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                const cellId = `${day}-${timeString}-${type}`;
+                
+                const cell = document.querySelector(`[data-id="${cellId}"]`);
+                if (cell) {
+                    state.selectedCells.add(cellId);
+                    cell.classList.add('selected');
+                }
+            }
+        }
+    }
+    
+    function getCellCoordinates(cell) {
+        const day = parseInt(cell.dataset.day);
+        const [hours, minutes] = cell.dataset.time.split(':').map(Number);
+        return {
+            day: day,
+            timeValue: hours * 60 + minutes
+        };
+    }
+    
+    function clearSelection() {
+        state.selectedCells.forEach(cellId => {
+            const cell = document.querySelector(`[data-id="${cellId}"]`);
+            if (cell) cell.classList.remove('selected');
+        });
+        state.selectedCells.clear();
+    }
+    
+    function handleKeyDown(event) {
+        if (event.key === 'Control' || event.key === 'Meta') {
+            state.isCtrlPressed = true;
+        } else if (event.key === 'Shift') {
+            state.isShiftPressed = true;
+        } else if (event.key === 'Escape') {
+            clearSelection();
+            hideBulkEditPanel();
+        }
+    }
+    
+    function handleKeyUp(event) {
+        if (event.key === 'Control' || event.key === 'Meta') {
+            state.isCtrlPressed = false;
+        } else if (event.key === 'Shift') {
+            state.isShiftPressed = false;
+        }
+    }
+    
+    // Раздел 1.5: Массовое заполнение ячеек
+    function updateBulkEditPanel() {
+        const count = state.selectedCells.size;
+        
+        if (count === 0) {
+            elements.bulkEditPanel.classList.remove('show');
+            return;
+        }
+        
+        elements.selectedCount.textContent = `${count} ${getNoun(count, 'ячейка', 'ячейки', 'ячеек')} выбрано`;
+        elements.bulkEditPanel.classList.add('show');
+    }
+    
+    function hideBulkEditPanel() {
+        elements.bulkEditPanel.classList.remove('show');
+    }
+    
+    function getNoun(number, one, two, five) {
+        let n = Math.abs(number);
+        n %= 100;
+        if (n >= 5 && n <= 20) return five;
+        n %= 10;
+        if (n === 1) return one;
+        if (n >= 2 && n <= 4) return two;
+        return five;
+    }
+    
+    // Раздел 1.3: Функционал работы с категориями
+    async function loadCategories() {
+        try {
+            const response = await fetch('/api/v1/categories');
+            if (response.ok) {
+                const data = await response.json();
+                state.categories = data.categories || data;
+            } else {
+                loadDefaultCategories();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки категорий:', error);
+            loadDefaultCategories();
+        }
+        
+        updateCategorySelects();
+        updateCategoriesList();
+    }
+    
+    function loadDefaultCategories() {
+        state.categories = [
+            { id: 1, name: 'Работа', color: '#4361ee', description: 'Рабочие задачи' },
+            { id: 2, name: 'Учёба', color: '#7209b7', description: 'Обучение и образование' },
+            { id: 3, name: 'Спорт', color: '#f72585', description: 'Физическая активность' },
+            { id: 4, name: 'Отдых', color: '#4cc9f0', description: 'Время для отдыха' },
+            { id: 5, name: 'Семья', color: '#2a9d8f', description: 'Время с семьей' },
+            { id: 6, name: 'Хобби', color: '#e9c46a', description: 'Личные увлечения' }
+        ];
+    }
+    
+    function updateCategorySelects() {
+        // Основной селект категорий
+        elements.categorySelect.innerHTML = '<option value="">Выберите категорию</option>';
+        elements.bulkCategorySelect.innerHTML = '<option value="">Выберите категорию</option>';
+        elements.quickCategory.innerHTML = '<option value="">Выберите категорию</option>';
+        
+        state.categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category.id;
+            option.textContent = category.name;
+            option.style.color = category.color;
+            elements.categorySelect.appendChild(option.cloneNode(true));
+            elements.bulkCategorySelect.appendChild(option.cloneNode(true));
+            elements.quickCategory.appendChild(option);
+        });
+    }
+    
+    function updateCategoriesList() {
+        elements.categoriesList.innerHTML = '';
+        
+        state.categories.forEach(category => {
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'category-item';
+            categoryDiv.style.borderLeftColor = category.color;
+            
+            categoryDiv.innerHTML = `
+                <div class="category-color" style="background-color: ${category.color}"></div>
+                <div class="category-info">
+                    <div class="category-name">${category.name}</div>
+                    ${category.description ? `<small class="text-muted">${category.description}</small>` : ''}
+                </div>
+                <div class="category-actions">
+                    <button class="btn btn-sm btn-outline-secondary edit-category-btn me-1" data-id="${category.id}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-category-btn" data-id="${category.id}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            elements.categoriesList.appendChild(categoryDiv);
+        });
+        
+        // Обработчики удаления категорий
+        document.querySelectorAll('.delete-category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const categoryId = this.dataset.id;
+                const category = state.categories.find(c => c.id == categoryId);
+                
+                if (category) {
+                    document.getElementById('deleteMessage').textContent = 
+                        `Вы уверены, что хотите удалить категорию "${category.name}"? Все связанные события будут очищены.`;
+                    
+                    const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+                    modal.show();
+                    
+                    document.getElementById('confirmDeleteBtn').onclick = function() {
+                        deleteCategory(categoryId);
+                        modal.hide();
+                    };
+                }
+            });
+        });
+    }
+    
+    function deleteCategory(categoryId) {
+        // Удаляем события этой категории
+        state.events = state.events.filter(event => event.category_id != categoryId);
+        
+        // Удаляем категорию
+        state.categories = state.categories.filter(c => c.id != categoryId);
+        
+        // Обновляем интерфейс
+        updateCategorySelects();
+        updateCategoriesList();
+        renderEvents();
+        updateBalanceWheel();
+        
+        // Очищаем ячейки с удаленной категорией
+        document.querySelectorAll('.plan-event, .fact-event').forEach(eventEl => {
+            if (eventEl.dataset.categoryId == categoryId) {
+                eventEl.remove();
+            }
+        });
+        
+        // Сохраняем в localStorage
+        saveData();
+    }
+    
+    // Раздел 1.7: Уменьшенные ячейки
+    function initTimeSelects() {
+        const startTimeSelect = document.getElementById('startTime');
+        const endTimeSelect = document.getElementById('endTime');
+        
+        startTimeSelect.innerHTML = '';
+        endTimeSelect.innerHTML = '';
+        
+        for (let hour = 0; hour < 24; hour++) {
+            for (let minute = 0; minute < 60; minute += config.slotMinutes) {
+                const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                
+                const option1 = document.createElement('option');
+                option1.value = time;
+                option1.textContent = time;
+                startTimeSelect.appendChild(option1);
+                
+                const option2 = document.createElement('option');
+                option2.value = time;
+                option2.textContent = time;
+                endTimeSelect.appendChild(option2);
+            }
+        }
+    }
+    
+    // Раздел 2.1-2.2: Очистка верхней панели и улучшение виджета недели
+    function updateWeekRange() {
+        const [year, week] = elements.weekPicker.value.split('-W');
+        const dates = getWeekDates(year, week);
+        
+        if (dates.start && dates.end) {
+            const startStr = formatDate(dates.start);
+            const endStr = formatDate(dates.end);
+            elements.weekRange.textContent = `${year} - Неделя ${week} (${startStr} - ${endStr})`;
+            
+            // Обновляем даты в заголовках дней
+            updateDayHeaders(dates.start);
+        }
+    }
+    
+    function getWeekDates(year, week) {
+        const simple = new Date(year, 0, 1 + (week - 1) * 7);
+        const dow = simple.getDay();
+        const start = new Date(simple);
+        
+        if (dow <= 4) {
+            start.setDate(simple.getDate() - simple.getDay() + 1);
+        } else {
+            start.setDate(simple.getDate() + 8 - simple.getDay());
+        }
+        
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        
+        return { start, end };
+    }
+    
+    function updateDayHeaders(startDate) {
+        const dayElements = document.querySelectorAll('.day-date');
+        
+        dayElements.forEach((el, index) => {
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + parseInt(el.dataset.day));
+            el.textContent = formatDate(date);
+        });
+    }
+    
+    function formatDate(date) {
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${day}.${month}`;
+    }
+    
+    // Раздел 3.1: Динамическая подсветка текущего времени
+    function initCurrentTimeIndicator() {
+        updateCurrentTimeHighlight();
+        setInterval(updateCurrentTimeHighlight, 60000); // Обновлять каждую минуту
+    }
+    
+    function updateCurrentTimeHighlight() {
+        // Удаляем старую подсветку
+        document.querySelectorAll('.current-time-slot').forEach(el => {
+            el.classList.remove('current-time-slot');
+        });
+        
+        const now = new Date();
+        const currentDay = now.getDay();
+        const adjustedDay = currentDay === 0 ? 6 : currentDay - 1;
+        
+        // Находим текущий временной слот
+        const currentHour = now.getHours() + now.getMinutes() / 60;
+        const slots = document.querySelectorAll('.time-slot-row');
+        
+        slots.forEach((row, index) => {
+            const timeCell = row.querySelector('.time-column');
+            if (!timeCell) return;
+            
+            const [hours, minutes] = timeCell.textContent.split(':').map(Number);
+            const slotTime = hours + minutes / 60;
+            
+            if (Math.abs(currentHour - slotTime) < config.slotMinutes / 120) {
+                // Подсвечиваем текущий слот
+                const planCell = row.children[adjustedDay + 1]?.querySelector('.plan-column');
+                const factCell = row.children[adjustedDay + 1]?.querySelector('.fact-column');
+                
+                if (planCell) planCell.classList.add('current-time-slot');
+                if (factCell) factCell.classList.add('current-time-slot');
+            }
+        });
+    }
+    
+    // Раздел 4: Система шаблонов
+    async function loadTemplates() {
+        try {
+            const templates = localStorage.getItem('scheduleTemplates');
+            if (templates) {
+                state.templates = JSON.parse(templates);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки шаблонов:', error);
+            state.templates = [];
+        }
+    }
+    
+    function saveTemplate(name) {
+        if (!name.trim()) {
+            alert('Введите название шаблона');
+            return;
+        }
+        
+        // Собираем данные плана из текущей недели
+        const templateData = {
+            id: Date.now(),
+            name: name.trim(),
+            createdAt: new Date().toISOString(),
+            data: collectPlanData(),
+            settings: {
+                startHour: state.timeSettings.startHour,
+                endHour: state.timeSettings.endHour
+            }
+        };
+        
+        state.templates.push(templateData);
+        saveTemplatesToStorage();
+        
+        alert(`Шаблон "${name}" сохранен!`);
+        return templateData;
+    }
+    
+    function collectPlanData() {
+        const planData = {};
+        
+        // Собираем события типа "план" из текущей недели
+        const planEvents = state.events.filter(event => event.type === 'plan');
+        
+        planEvents.forEach(event => {
+            const start = new Date(event.start_time);
+            const day = start.getDay();
+            const adjustedDay = day === 0 ? 6 : day - 1;
+            
+            if (!planData[adjustedDay]) planData[adjustedDay] = [];
+            
+            planData[adjustedDay].push({
+                time: event.start_time.split('T')[1].substring(0, 5),
+                categoryId: event.category_id,
+                duration: event.duration
+            });
+        });
+        
+        return planData;
+    }
+    
+    function applyTemplate(templateId) {
+        const template = state.templates.find(t => t.id == templateId);
+        if (!template) return;
+        
+        if (confirm(`Применить шаблон "${template.name}" к текущей неделе?`)) {
+            // Очищаем существующие события плана
+            state.events = state.events.filter(event => event.type !== 'plan');
+            
+            // Добавляем события из шаблона
+            const weekStart = getWeekStartDate();
+            
+            Object.keys(template.data).forEach(dayIndex => {
+                const day = parseInt(dayIndex);
+                const events = template.data[day];
+                
+                events.forEach(eventData => {
+                    const eventDate = new Date(weekStart);
+                    eventDate.setDate(weekStart.getDate() + day);
+                    
+                    const startTime = new Date(`${eventDate.toDateString()} ${eventData.time}`);
+                    const endTime = new Date(startTime);
+                    endTime.setMinutes(endTime.getMinutes() + (eventData.duration || 60));
+                    
+                    const newEvent = {
+                        id: Date.now() + Math.random(),
+                        type: 'plan',
+                        category_id: eventData.categoryId,
+                        start_time: startTime.toISOString(),
+                        end_time: endTime.toISOString(),
+                        description: `Из шаблона: ${template.name}`
+                    };
+                    
+                    state.events.push(newEvent);
+                });
+            });
+            
+            renderEvents();
+            updateBalanceWheel();
+            saveData();
+            
+            alert(`Шаблон "${template.name}" применен!`);
+        }
+    }
+    
+    function saveTemplatesToStorage() {
+        localStorage.setItem('scheduleTemplates', JSON.stringify(state.templates));
+    }
+    
+    // Раздел 5: Колесо баланса
+    function updateBalanceWheel() {
+        const period = elements.wheelPeriod.value;
+        const data = calculateBalanceWheelData(period);
+        renderBalanceWheel(data);
+    }
+    
+    function calculateBalanceWheelData(period) {
+        const now = new Date();
+        let filteredEvents = [];
+        
+        if (period === 'day') {
+            const today = now.toISOString().split('T')[0];
+            filteredEvents = state.events.filter(event => {
+                const eventDate = event.start_time.split('T')[0];
+                return eventDate === today;
+            });
+        } else {
+            // Неделя
+            const weekStart = getWeekStartDate();
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            
+            filteredEvents = state.events.filter(event => {
+                const eventDate = new Date(event.start_time);
+                return eventDate >= weekStart && eventDate <= weekEnd;
+            });
+        }
+        
+        // Группируем по категориям
+        const categoryStats = {};
+        let totalHours = 0;
+        
+        filteredEvents.forEach(event => {
+            const start = new Date(event.start_time);
+            const end = new Date(event.end_time);
+            const duration = (end - start) / (1000 * 60 * 60); // Часы
+            
+            const category = state.categories.find(c => c.id == event.category_id);
+            const categoryName = category ? category.name : 'Без категории';
+            
+            if (!categoryStats[categoryName]) {
+                categoryStats[categoryName] = {
+                    hours: 0,
+                    color: category ? category.color : '#6c757d'
+                };
+            }
+            
+            categoryStats[categoryName].hours += duration;
+            totalHours += duration;
+        });
+        
+        // Преобразуем в массив и считаем проценты
+        const result = Object.keys(categoryStats).map(name => ({
+            name,
+            hours: categoryStats[name].hours,
+            color: categoryStats[name].color,
+            percentage: totalHours > 0 ? (categoryStats[name].hours / totalHours) * 100 : 0
+        }));
+        
+        // Сортируем по убыванию
+        result.sort((a, b) => b.hours - a.hours);
+        
+        return result;
+    }
+    
+    function renderBalanceWheel(data) {
+        const ctx = elements.balanceWheel.getContext('2d');
+        const centerX = elements.balanceWheel.width / 2;
+        const centerY = elements.balanceWheel.height / 2;
+        const radius = Math.min(centerX, centerY) - 10;
+        
+        // Очищаем canvas
+        ctx.clearRect(0, 0, elements.balanceWheel.width, elements.balanceWheel.height);
+        
+        if (data.length === 0) {
+            // Отображаем пустое колесо
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fill();
+            ctx.strokeStyle = '#dee2e6';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Текст "Нет данных"
+            ctx.fillStyle = '#6c757d';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Нет данных', centerX, centerY);
+            
+            elements.wheelLegend.innerHTML = '<div class="text-muted">Нет данных для отображения</div>';
+            return;
+        }
+        
+        let startAngle = 0;
+        
+        // Рисуем сектора
+        data.forEach(item => {
+            const sliceAngle = (item.percentage / 100) * Math.PI * 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+            ctx.closePath();
+            
+            ctx.fillStyle = item.color;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            startAngle += sliceAngle;
+        });
+        
+        // Центральный круг
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = '#dee2e6';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Обновляем легенду
+        updateWheelLegend(data);
+    }
+    
+    function updateWheelLegend(data) {
+        elements.wheelLegend.innerHTML = '';
+        
+        data.forEach(item => {
+            const legendItem = document.createElement('div');
+            legendItem.className = 'wheel-legend-item';
+            legendItem.innerHTML = `
+                <span class="legend-dot" style="background-color: ${item.color}; width: 12px; height: 12px; border-radius: 50%;"></span>
+                <span>${item.name}</span>
+                <small class="text-muted">(${Math.round(item.hours)}ч, ${Math.round(item.percentage)}%)</small>
+            `;
+            elements.wheelLegend.appendChild(legendItem);
+        });
+    }
+    
+    // Вспомогательные функции
+    async function loadEvents() {
+        try {
+            const [year, week] = elements.weekPicker.value.split('-W');
+            const response = await fetch(`/api/v1/events/week/${year}-W${week}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                state.events = data.events || data;
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки событий:', error);
+        }
+        
+        renderEvents();
+        updateBalanceWheel();
+    }
+    
+    function renderEvents() {
+        // Очищаем существующие события
+        document.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
+        
+        state.events.forEach(event => {
+            try {
+                const start = new Date(event.start_time);
+                const end = new Date(event.end_time);
+                
+                const startHour = start.getHours() + start.getMinutes() / 60;
+                const endHour = end.getHours() + end.getMinutes() / 60;
+                
+                const durationSlots = Math.round((endHour - startHour) * 4);
+                const startSlot = Math.round((startHour - state.timeSettings.startHour) * 4);
+                
+                if (startSlot < 0 || startSlot >= elements.scheduleBody.children.length) return;
+                
+                const dayOfWeek = start.getDay();
+                const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                
+                const row = elements.scheduleBody.children[startSlot];
+                if (!row) return;
+                
+                const dayCell = row.children[adjustedDay + 1];
+                if (!dayCell) return;
+                
+                const targetCell = event.type === 'plan' ? 
+                    dayCell.querySelector('.plan-column') : 
+                    dayCell.querySelector('.fact-column');
+                
+                if (!targetCell) return;
+                
+                const category = state.categories.find(c => c.id == event.category_id);
+                const eventDiv = document.createElement('div');
+                eventDiv.className = event.type === 'plan' ? 'plan-event' : 'fact-event';
+                eventDiv.textContent = category ? category.name : 'Без категории';
+                eventDiv.dataset.eventId = event.id;
+                eventDiv.dataset.categoryId = event.category_id;
+                
+                if (category) {
+                    eventDiv.style.borderLeftColor = category.color;
+                }
+                
+                if (durationSlots > 1) {
+                    eventDiv.style.height = `${durationSlots * config.slotHeight - 2}px`;
+                    eventDiv.style.top = '1px';
+                }
+                
+                targetCell.appendChild(eventDiv);
+                
+            } catch (error) {
+                console.error('Ошибка рендеринга события:', error);
+            }
+        });
+    }
+    
+    function getWeekStartDate() {
+        const [year, week] = elements.weekPicker.value.split('-W');
+        const dates = getWeekDates(year, week);
+        return dates.start;
+    }
+    
+    function saveData() {
+        // Сохраняем события в localStorage (в реальном приложении - на сервер)
+        localStorage.setItem('scheduleEvents', JSON.stringify(state.events));
+        localStorage.setItem('scheduleCategories', JSON.stringify(state.categories));
+    }
+    
+    function initEventHandlers() {
+        // Навигация по неделям
+        elements.currentWeekBtn.addEventListener('click', setCurrentWeek);
+        elements.prevWeekBtn.addEventListener('click', prevWeek);
+        elements.nextWeekBtn.addEventListener('click', nextWeek);
+        elements.weekPicker.addEventListener('change', updateWeek);
+        
+        // Настройки времени
+        elements.timeSettingsBtn.addEventListener('click', showTimeSettings);
+        document.getElementById('timeSettingsForm').addEventListener('submit', saveTimeSettings);
+        
+        // Шаблоны
+        elements.saveTemplateBtn.addEventListener('click', showSaveTemplateDialog);
+        elements.templatesBtn.addEventListener('click', showTemplatesModal);
+        document.getElementById('createTemplateBtn').addEventListener('click', createTemplate);
+        
+        // Категории
+        elements.addCategoryBtn.addEventListener('click', showCategoryModal);
+        document.getElementById('categoryForm').addEventListener('submit', createCategory);
+        
+        // Массовое заполнение
+        elements.bulkPlanBtn.addEventListener('click', () => bulkFill('plan'));
+        elements.bulkFactBtn.addEventListener('click', () => bulkFill('fact'));
+        elements.bulkClearBtn.addEventListener('click', bulkClear);
+        elements.bulkCancelBtn.addEventListener('click', clearSelection);
+        
+        // Быстрые действия
+        elements.quickEventBtn.addEventListener('click', showQuickEventModal);
+        elements.clearDayBtn.addEventListener('click', clearCurrentDay);
+        elements.copyDayBtn.addEventListener('click', copyCurrentDay);
+        elements.statsBtn.addEventListener('click', showStatistics);
+        
+        // Колесо баланса
+        elements.wheelPeriod.addEventListener('change', updateBalanceWheel);
+        
+        // Инициализация клавиш для выбора ячеек
+        initSelectionHandlers();
+        
+        // Загрузка шаблонов
+        loadTemplates();
+    }
+    
+    function setCurrentWeek() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const week = getWeekNumber(today);
+        elements.weekPicker.value = `${year}-W${week.toString().padStart(2, '0')}`;
+        updateWeek();
+    }
+    
+    function getWeekNumber(date) {
+        const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+        const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+    }
+    
+    function prevWeek() {
+        const [year, week] = elements.weekPicker.value.split('-W');
+        let newWeek = parseInt(week) - 1;
+        let newYear = parseInt(year);
+        
+        if (newWeek < 1) {
+            newYear--;
+            newWeek = 52;
+        }
+        
+        elements.weekPicker.value = `${newYear}-W${newWeek.toString().padStart(2, '0')}`;
+        updateWeek();
+    }
+    
+    function nextWeek() {
+        const [year, week] = elements.weekPicker.value.split('-W');
+        let newWeek = parseInt(week) + 1;
+        let newYear = parseInt(year);
+        
+        if (newWeek > 52) {
+            newYear++;
+            newWeek = 1;
+        }
+        
+        elements.weekPicker.value = `${newYear}-W${newWeek.toString().padStart(2, '0')}`;
+        updateWeek();
+    }
+    
+    function updateWeek() {
+        updateWeekRange();
+        loadEvents();
+        updateBalanceWheel();
+    }
+    
+    function showTimeSettings() {
+        const modal = new bootstrap.Modal(document.getElementById('timeSettingsModal'));
+        modal.show();
+    }
+    
+    function saveTimeSettings(event) {
+        event.preventDefault();
+        
+        const startTime = document.getElementById('startTimeInput').value;
+        const endTime = document.getElementById('endTimeInput').value;
+        const saveSettings = document.getElementById('saveTimeSettings').checked;
+        
+        const [startH, startM] = startTime.split(':').map(Number);
+        const [endH, endM] = endTime.split(':').map(Number);
+        
+        state.timeSettings.startHour = startH + startM / 60;
+        state.timeSettings.endHour = endH + endM / 60;
+        
+        if (saveSettings) {
+            localStorage.setItem('scheduleStartTime', startTime);
+            localStorage.setItem('scheduleEndTime', endTime);
+        }
+        
+        initSchedule();
+        loadEvents();
+        
+        bootstrap.Modal.getInstance(document.getElementById('timeSettingsModal')).hide();
+    }
+    
+    function showSaveTemplateDialog() {
+        const name = prompt('Введите название шаблона:');
+        if (name) {
+            saveTemplate(name);
+        }
+    }
+    
+    function showTemplatesModal() {
+        updateTemplatesList();
+        const modal = new bootstrap.Modal(document.getElementById('templatesModal'));
+        modal.show();
+    }
+    
+    function updateTemplatesList() {
+        const list = document.getElementById('templatesList');
+        list.innerHTML = '';
+        
+        if (state.templates.length === 0) {
+            list.innerHTML = '<div class="text-center py-4 text-muted">Нет сохраненных шаблонов</div>';
+            return;
+        }
+        
+        state.templates.forEach(template => {
+            const date = new Date(template.createdAt);
+            const item = document.createElement('div');
+            item.className = 'list-group-item list-group-item-action';
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">${template.name}</h6>
+                        <small class="text-muted">Создан: ${date.toLocaleDateString()}</small>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary apply-template-btn" data-id="${template.id}">
+                            Применить
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary rename-template-btn" data-id="${template.id}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger delete-template-btn" data-id="${template.id}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            list.appendChild(item);
+        });
+        
+        // Обработчики для кнопок шаблонов
+        document.querySelectorAll('.apply-template-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                applyTemplate(this.dataset.id);
+                bootstrap.Modal.getInstance(document.getElementById('templatesModal')).hide();
+            });
+        });
+        
+        document.querySelectorAll('.delete-template-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (confirm('Удалить этот шаблон?')) {
+                    deleteTemplate(this.dataset.id);
+                    updateTemplatesList();
+                }
+            });
+        });
+    }
+    
+    function createTemplate() {
+        const nameInput = document.getElementById('templateName');
+        const name = nameInput.value.trim();
+        
+        if (!name) {
+            alert('Введите название шаблона');
+            return;
+        }
+        
+        saveTemplate(name);
+        nameInput.value = '';
+        updateTemplatesList();
+    }
+    
+    function deleteTemplate(templateId) {
+        state.templates = state.templates.filter(t => t.id != templateId);
+        saveTemplatesToStorage();
+    }
+    
+    function showCategoryModal() {
+        initColorPicker();
+        const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+        modal.show();
+    }
+    
+    function initColorPicker() {
+        const colors = [
+            '#4361ee', '#3a0ca3', '#7209b7', '#f72585',
+            '#4cc9f0', '#2a9d8f', '#e9c46a', '#f4a261',
+            '#e76f51', '#264653', '#2a9d8f', '#e9c46a'
+        ];
+        
+        const container = document.getElementById('colorPicker');
+        container.innerHTML = '';
+        
+        colors.forEach(color => {
+            const colorBtn = document.createElement('button');
+            colorBtn.type = 'button';
+            colorBtn.className = 'btn btn-sm rounded-circle';
+            colorBtn.style.width = '30px';
+            colorBtn.style.height = '30px';
+            colorBtn.style.backgroundColor = color;
+            colorBtn.style.border = '2px solid #fff';
+            colorBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            colorBtn.title = color;
+            
+            colorBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('selectedColor').value = color;
+                
+                // Убираем выделение со всех кнопок
+                container.querySelectorAll('button').forEach(btn => {
+                    btn.style.border = '2px solid #fff';
+                });
+                
+                // Добавляем выделение выбранной кнопке
+                this.style.border = '2px solid #000';
+            });
+            
+            container.appendChild(colorBtn);
+        });
+    }
+    
+    function createCategory(event) {
+        event.preventDefault();
+        
+        const name = document.getElementById('categoryName').value.trim();
+        const color = document.getElementById('selectedColor').value;
+        const description = document.getElementById('categoryDescription').value.trim();
+        
+        if (!name) {
+            alert('Введите название категории');
+            return;
+        }
+        
+        const newCategory = {
+            id: Date.now(),
+            name,
+            color,
+            description
+        };
+        
+        state.categories.push(newCategory);
+        updateCategorySelects();
+        updateCategoriesList();
+        saveData();
+        
+        document.getElementById('categoryForm').reset();
+        bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
+    }
+    
+    function bulkFill(type) {
+        const categoryId = elements.bulkCategorySelect.value;
+        if (!categoryId) {
+            alert('Выберите категорию');
+            return;
+        }
+        
+        const category = state.categories.find(c => c.id == categoryId);
+        if (!category) return;
+        
+        state.selectedCells.forEach(cellId => {
+            const [day, time, cellType] = cellId.split('-');
+            
+            if (cellType === type) {
+                // Создаем событие
+                const weekStart = getWeekStartDate();
+                const eventDate = new Date(weekStart);
+                eventDate.setDate(weekStart.getDate() + parseInt(day));
+                
+                const [hours, minutes] = time.split(':').map(Number);
+                const startTime = new Date(eventDate);
+                startTime.setHours(hours, minutes, 0, 0);
+                
+                const endTime = new Date(startTime);
+                endTime.setMinutes(endTime.getMinutes() + config.slotMinutes);
+                
+                const eventId = `${cellId}-${Date.now()}`;
+                
+                // Добавляем или обновляем событие
+                const existingIndex = state.events.findIndex(e => 
+                    e.type === type && 
+                    new Date(e.start_time).getHours() === hours &&
+                    new Date(e.start_time).getMinutes() === minutes &&
+                    new Date(e.start_time).getDate() === eventDate.getDate()
+                );
+                
+                const eventData = {
+                    id: eventId,
+                    type: type,
+                    category_id: categoryId,
+                    start_time: startTime.toISOString(),
+                    end_time: endTime.toISOString(),
+                    description: ''
+                };
+                
+                if (existingIndex >= 0) {
+                    state.events[existingIndex] = eventData;
+                } else {
+                    state.events.push(eventData);
+                }
+                
+                // Обновляем отображение
+                const cell = document.querySelector(`[data-id="${cellId}"]`);
+                if (cell) {
+                    // Очищаем существующие события в ячейке
+                    cell.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
+                    
+                    // Добавляем новое событие
+                    const eventDiv = document.createElement('div');
+                    eventDiv.className = type === 'plan' ? 'plan-event' : 'fact-event';
+                    eventDiv.textContent = category.name;
+                    eventDiv.dataset.eventId = eventId;
+                    eventDiv.dataset.categoryId = categoryId;
+                    eventDiv.style.borderLeftColor = category.color;
+                    cell.appendChild(eventDiv);
+                }
+            }
+        });
+        
+        clearSelection();
+        updateBalanceWheel();
+        saveData();
+    }
+    
+    function bulkClear() {
+        state.selectedCells.forEach(cellId => {
+            const [day, time, type] = cellId.split('-');
+            
+            // Удаляем соответствующие события
+            const weekStart = getWeekStartDate();
+            const eventDate = new Date(weekStart);
+            eventDate.setDate(weekStart.getDate() + parseInt(day));
+            
+            const [hours, minutes] = time.split(':').map(Number);
+            
+            state.events = state.events.filter(event => {
+                if (event.type !== type) return true;
+                
+                const eventTime = new Date(event.start_time);
+                return !(
+                    eventTime.getDate() === eventDate.getDate() &&
+                    eventTime.getHours() === hours &&
+                    eventTime.getMinutes() === minutes
+                );
+            });
+            
+            // Очищаем ячейку
+            const cell = document.querySelector(`[data-id="${cellId}"]`);
+            if (cell) {
+                cell.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
+            }
+        });
+        
+        clearSelection();
+        updateBalanceWheel();
+        saveData();
+    }
+    
+    function showQuickEventModal() {
+        updateCategorySelects(); // Обновляем список категорий
+        const modal = new bootstrap.Modal(document.getElementById('quickEventModal'));
+        modal.show();
+    }
+    
+    function clearCurrentDay() {
+        const today = new Date();
+        const currentDay = today.getDay();
+        const adjustedDay = currentDay === 0 ? 6 : currentDay - 1;
+        
+        if (confirm('Очистить все события на сегодня?')) {
+            // Очищаем события текущего дня
+            const todayStr = today.toISOString().split('T')[0];
+            state.events = state.events.filter(event => {
+                const eventDate = event.start_time.split('T')[0];
+                return eventDate !== todayStr;
+            });
+            
+            // Очищаем ячейки текущего дня
+            const rows = elements.scheduleBody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const dayCell = row.children[adjustedDay + 1];
+                if (dayCell) {
+                    dayCell.querySelector('.plan-column').innerHTML = '';
+                    dayCell.querySelector('.fact-column').innerHTML = '';
+                }
+            });
+            
+            updateBalanceWheel();
+            saveData();
+        }
+    }
+    
+    function copyCurrentDay() {
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        if (confirm('Скопировать сегодняшние события на завтра?')) {
+            const todayStr = today.toISOString().split('T')[0];
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            
+            // Находим события сегодняшнего дня
+            const todayEvents = state.events.filter(event => {
+                const eventDate = event.start_time.split('T')[0];
+                return eventDate === todayStr;
+            });
+            
+            // Копируем события на завтра
+            todayEvents.forEach(event => {
+                const startTime = new Date(event.start_time);
+                const endTime = new Date(event.end_time);
+                
+                startTime.setDate(startTime.getDate() + 1);
+                endTime.setDate(endTime.getDate() + 1);
+                
+                const newEvent = {
+                    ...event,
+                    id: Date.now() + Math.random(),
+                    start_time: startTime.toISOString(),
+                    end_time: endTime.toISOString()
+                };
+                
+                state.events.push(newEvent);
+            });
+            
+            renderEvents();
+            updateBalanceWheel();
+            saveData();
+            
+            alert('События скопированы на завтра!');
+        }
+    }
+    
+    function showStatistics() {
+        alert('Статистика будет доступна в следующих версиях приложения');
+    }
+    
+    // Инициализация текущей недели
+    setCurrentWeek();
+});
+</script>
+{% endblock %}

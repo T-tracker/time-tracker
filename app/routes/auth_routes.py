@@ -10,7 +10,7 @@ auth_bp = Blueprint('auth', __name__)
 def login():
     """Вход по Telegram ID или username + пароль"""
     if current_user.is_authenticated:
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.schedule'))  # ← Изменено с dashboard
     
     if request.method == 'POST':
         identifier = request.form.get('identifier')  # Может быть telegram_id или username
@@ -26,7 +26,7 @@ def login():
             login_user(user, remember=remember)
             next_page = request.args.get('next')
             flash('Вы успешно вошли в систему!', 'success')
-            return redirect(next_page or url_for('main.dashboard'))
+            return redirect(next_page or url_for('main.schedule'))  # ← Изменено с dashboard
         else:
             flash('Неверный логин или пароль', 'danger')
     
@@ -36,13 +36,13 @@ def login():
 def register():
     """Регистрация нового пользователя"""
     if current_user.is_authenticated:
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.schedule'))  # ← Изменено с dashboard
     
     if request.method == 'POST':
         username = request.form.get('username')
-        telegram_id = request.form.get('telegram_id')  # Может быть пустым
         password = request.form.get('password')
         password_confirm = request.form.get('password_confirm')
+        telegram_id = request.form.get('telegram_id')  # Может быть пустым
         
         # Валидация
         if not username or not password:
@@ -51,6 +51,10 @@ def register():
         
         if password != password_confirm:
             flash('Пароли не совпадают', 'danger')
+            return render_template('register.html')
+        
+        if len(password) < 6:
+            flash('Пароль должен содержать минимум 6 символов', 'danger')
             return render_template('register.html')
         
         # Проверяем уникальность
@@ -69,10 +73,9 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        # Автоматический вход после регистрации
-        login_user(user)
-        flash('Регистрация успешна! Создайте свою первую категорию.', 'success')
-        return redirect(url_for('main.dashboard'))
+        # Не авторизуем автоматически, просим войти
+        flash('Регистрация успешна! Теперь вы можете войти.', 'success')
+        return redirect(url_for('auth.login'))
     
     return render_template('register.html')
 
