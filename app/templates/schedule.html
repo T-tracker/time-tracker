@@ -615,15 +615,15 @@
                 <div class="actions-grid">
                     <div class="action-btn" id="quickEventBtn">
                         <i class="bi bi-plus-circle action-icon"></i>
-                        <span class="action-text">Быстрое событие</span>
+                        <span class="action-text">Новое событие</span>
                     </div>
-                    <div class="action-btn" id="clearDayBtn">
-                        <i class="bi bi-x-circle action-icon"></i>
-                        <span class="action-text">Очистить день</span>
+                    <div class="action-btn" id="saveTemplateQuickBtn">
+                        <i class="bi bi-save action-icon"></i>
+                        <span class="action-text">Сохранить неделю</span>
                     </div>
-                    <div class="action-btn" id="copyDayBtn">
-                        <i class="bi bi-copy action-icon"></i>
-                        <span class="action-text">Копировать день</span>
+                    <div class="action-btn" id="applyTemplateQuickBtn">
+                        <i class="bi bi-calendar-check action-icon"></i>
+                        <span class="action-text">Применить шаблон</span>
                     </div>
                     <div class="action-btn" id="statsBtn">
                         <i class="bi bi-graph-up action-icon"></i>
@@ -648,6 +648,102 @@
         Факт
     </label>
 </div>
+<!-- Модальное окно сохранения шаблона -->
+<div class="modal fade" id="saveTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Сохранить неделю как шаблон</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="saveTemplateForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="templateName" class="form-label">Название шаблона</label>
+                        <input type="text" class="form-control" id="templateName" required 
+                               placeholder="Например: 'Рабочая неделя', 'Учебная неделя'">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="templateDescription" class="form-label">Описание (необязательно)</label>
+                        <textarea class="form-control" id="templateDescription" rows="2" 
+                                  placeholder="Описание шаблона..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Что сохранить:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="savePlan" checked>
+                            <label class="form-check-label" for="savePlan">
+                                Запланированные события
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="saveFact" checked>
+                            <label class="form-check-label" for="saveFact">
+                                Фактические события
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="bi bi-info-circle"></i> Шаблон сохранит все события текущей недели.
+                            Вы сможете применять его к другим неделям.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить шаблон</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Обновленное модальное окно шаблонов -->
+<div class="modal fade" id="templatesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Управление шаблонами</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Форма создания нового шаблона -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title">Создать новый шаблон</h6>
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" id="newTemplateName" 
+                                   placeholder="Название нового шаблона">
+                            <button class="btn btn-primary" id="createTemplateBtn" type="button">
+                                <i class="bi bi-plus-circle me-1"></i>Создать
+                            </button>
+                        </div>
+                        <small class="text-muted">Создаст шаблон из текущего плана недели</small>
+                    </div>
+                </div>
+                
+                <!-- Список шаблонов -->
+                <h6 class="mb-3">Мои шаблоны</h6>
+                <div class="list-group" id="templatesList">
+                    <!-- Шаблоны будут загружены через JavaScript -->
+                    <div class="text-center py-4 text-muted" id="noTemplatesMessage">
+                        <i class="bi bi-calendar-x display-6 mb-3"></i>
+                        <p>Нет сохраненных шаблонов</p>
+                        <small>Создайте шаблон, чтобы быстро применять его к другим неделям</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Настройки времени -->
 <div class="modal fade" id="timeSettingsModal" tabindex="-1">
     <div class="modal-dialog">
@@ -781,34 +877,6 @@
                     <button type="submit" class="btn btn-primary">Создать категорию</button>
                 </div>
             </form>
-        </div>
-    </div>
-</div>
-
-<!-- Управление шаблонами -->
-<div class="modal fade" id="templatesModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Управление шаблонами</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-4">
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="templateName" placeholder="Название нового шаблона">
-                        <button class="btn btn-primary" id="createTemplateBtn">Создать шаблон</button>
-                    </div>
-                    <small class="text-muted">Создает шаблон из текущего плана недели</small>
-                </div>
-                
-                <div class="list-group" id="templatesList">
-                    <!-- Шаблоны будут загружены через JavaScript -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-            </div>
         </div>
     </div>
 </div>
@@ -967,6 +1035,363 @@ document.addEventListener('DOMContentLoaded', function() {
             endHour: localStorage.getItem('endHour') || 22.5
         }
     };
+
+    // Объект для управления шаблонами
+    const templateManager = {
+        // Сохранить текущую неделю как шаблон
+        async saveCurrentWeekAsTemplate(name, description = '', includePlan = true, includeFact = true) {
+            const weekStart = getWeekStartDate();
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            
+            // Собираем события текущей недели
+            const weekEvents = state.events.filter(event => {
+                const eventDate = new Date(event.start_time);
+                return eventDate >= weekStart && eventDate <= weekEnd;
+            });
+            
+            // Фильтруем по типам
+            const filteredEvents = weekEvents.filter(event => {
+                if (includePlan && includeFact) return true;
+                if (includePlan && event.type === 'plan') return true;
+                if (includeFact && event.type === 'fact') return true;
+                return false;
+            });
+            
+            // Создаем структуру шаблона
+            const template = {
+                id: Date.now(),
+                name: name,
+                description: description,
+                createdAt: new Date().toISOString(),
+                events: filteredEvents.map(event => ({
+                    type: event.type,
+                    category_id: event.category_id,
+                    day_of_week: new Date(event.start_time).getDay(), // 0-6, где 0 - воскресенье
+                    start_time: event.start_time.split('T')[1].substring(0, 5), // ЧЧ:ММ
+                    duration_minutes: Math.round((new Date(event.end_time) - new Date(event.start_time)) / (1000 * 60)),
+                    description: event.description
+                })),
+                settings: {
+                    includePlan: includePlan,
+                    includeFact: includeFact
+                }
+            };
+            
+            try {
+                // Сохраняем на сервер
+                const response = await fetch('/api/templates', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(template)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    template.id = result.id; // Используем ID с сервера
+                    state.templates.push(template);
+                    this.saveToLocalStorage();
+                    return template;
+                }
+            } catch (error) {
+                console.error('Ошибка сохранения шаблона:', error);
+                // Сохраняем локально как fallback
+                state.templates.push(template);
+                this.saveToLocalStorage();
+                return template;
+            }
+        },
+        
+        // Применить шаблон к текущей неделе
+        applyTemplate(templateId, options = {}) {
+            const template = state.templates.find(t => t.id == templateId);
+            if (!template) {
+                alert('Шаблон не найден');
+                return;
+            }
+            
+            if (!confirm(`Применить шаблон "${template.name}" к текущей неделе?`)) {
+                return;
+            }
+            
+            const weekStart = getWeekStartDate();
+            const newEvents = [];
+            
+            // Удаляем существующие события, если выбрана опция замены
+            if (options.replace) {
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                state.events = state.events.filter(event => {
+                    const eventDate = new Date(event.start_time);
+                    return eventDate < weekStart || eventDate > weekEnd;
+                });
+            }
+            
+            // Создаем новые события из шаблона
+            template.events.forEach(templateEvent => {
+                const eventDate = new Date(weekStart);
+                
+                // Конвертируем день недели из шаблона (0-воскресенье) в наш формат (0-понедельник)
+                let dayOffset = templateEvent.day_of_week;
+                if (dayOffset === 0) dayOffset = 6; // Воскресенье становится 6
+                else dayOffset -= 1; // Понедельник=0, Вторник=1 и т.д.
+                
+                eventDate.setDate(weekStart.getDate() + dayOffset);
+                
+                // Парсим время начала
+                const [hours, minutes] = templateEvent.start_time.split(':').map(Number);
+                const startTime = new Date(eventDate);
+                startTime.setHours(hours, minutes, 0, 0);
+                
+                // Вычисляем время окончания
+                const endTime = new Date(startTime);
+                endTime.setMinutes(endTime.getMinutes() + templateEvent.duration_minutes);
+                
+                // Создаем новое событие
+                const newEvent = {
+                    id: `template_${templateId}_${Date.now()}_${Math.random()}`,
+                    type: templateEvent.type,
+                    category_id: templateEvent.category_id,
+                    start_time: startTime.toISOString(),
+                    end_time: endTime.toISOString(),
+                    description: templateEvent.description || `Из шаблона: ${template.name}`,
+                    from_template: templateId
+                };
+                
+                newEvents.push(newEvent);
+            });
+            
+            // Добавляем новые события
+            state.events.push(...newEvents);
+            
+            // Обновляем отображение
+            renderEvents();
+            updateBalanceWheel();
+            saveEventsToLocalStorage();
+            
+            alert(`Шаблон "${template.name}" применен! Добавлено ${newEvents.length} событий.`);
+        },
+        
+        // Удалить шаблон
+        async deleteTemplate(templateId) {
+            const template = state.templates.find(t => t.id == templateId);
+            if (!template) return;
+            
+            if (!confirm(`Удалить шаблон "${template.name}"?`)) {
+                return;
+            }
+            
+            try {
+                // Удаляем с сервера
+                const response = await fetch(`/api/templates/${templateId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка удаления с сервера');
+                }
+            } catch (error) {
+                console.error('Ошибка удаления шаблона:', error);
+                // Продолжаем локальное удаление
+            }
+            
+            // Удаляем локально
+            state.templates = state.templates.filter(t => t.id != templateId);
+            this.saveToLocalStorage();
+            this.updateTemplatesList();
+            
+            alert(`Шаблон "${template.name}" удален`);
+        },
+        
+        // Загрузить шаблоны
+        async loadTemplates() {
+            try {
+                const response = await fetch('/api/templates');
+                if (response.ok) {
+                    const data = await response.json();
+                    state.templates = data.templates || data;
+                } else {
+                    this.loadFromLocalStorage();
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки шаблонов:', error);
+                this.loadFromLocalStorage();
+            }
+            
+            this.updateTemplatesList();
+        },
+        
+        // Сохранить в localStorage
+        saveToLocalStorage() {
+            localStorage.setItem('scheduleTemplates', JSON.stringify(state.templates));
+        },
+        
+        // Загрузить из localStorage
+        loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('scheduleTemplates');
+                if (saved) {
+                    state.templates = JSON.parse(saved);
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки шаблонов из localStorage:', error);
+                state.templates = [];
+            }
+        },
+        
+        // Обновить список шаблонов в UI
+        updateTemplatesList() {
+            const list = document.getElementById('templatesList');
+            const noTemplatesMsg = document.getElementById('noTemplatesMessage');
+            
+            if (!list) return;
+            
+            list.innerHTML = '';
+            
+            if (state.templates.length === 0) {
+                if (noTemplatesMsg) {
+                    noTemplatesMsg.style.display = 'block';
+                }
+                return;
+            }
+            
+            if (noTemplatesMsg) {
+                noTemplatesMsg.style.display = 'none';
+            }
+            
+            state.templates.forEach(template => {
+                const templateItem = document.createElement('div');
+                templateItem.className = 'list-group-item list-group-item-action';
+                templateItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${template.name}</h6>
+                            ${template.description ? `<p class="mb-1 small text-muted">${template.description}</p>` : ''}
+                            <small class="text-muted">
+                                Создан: ${new Date(template.createdAt).toLocaleDateString('ru-RU')} • 
+                                Событий: ${template.events?.length || 0}
+                            </small>
+                        </div>
+                        <div class="btn-group btn-group-sm ms-3">
+                            <button class="btn btn-outline-primary apply-template-btn" data-id="${template.id}">
+                                <i class="bi bi-check-circle"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary edit-template-btn" data-id="${template.id}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger delete-template-btn" data-id="${template.id}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                list.appendChild(templateItem);
+            });
+            
+            // Добавляем обработчики событий
+            document.querySelectorAll('.apply-template-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const templateId = btn.dataset.id;
+                    this.applyTemplate(templateId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-template-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const templateId = btn.dataset.id;
+                    this.deleteTemplate(templateId);
+                });
+            });
+            
+            document.querySelectorAll('.edit-template-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const templateId = btn.dataset.id;
+                    this.editTemplate(templateId);
+                });
+            });
+        },
+        
+        // Редактировать шаблон
+        editTemplate(templateId) {
+            const template = state.templates.find(t => t.id == templateId);
+            if (!template) return;
+            
+            // Заполняем форму редактирования
+            document.getElementById('templateName').value = template.name;
+            document.getElementById('templateDescription').value = template.description || '';
+            document.getElementById('savePlan').checked = template.settings?.includePlan !== false;
+            document.getElementById('saveFact').checked = template.settings?.includeFact !== false;
+            
+            // Показываем модальное окно
+            const modal = new bootstrap.Modal(document.getElementById('saveTemplateModal'));
+            modal.show();
+            
+            // Меняем обработчик формы
+            const form = document.getElementById('saveTemplateForm');
+            const originalHandler = form.onsubmit;
+            
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                
+                const updatedTemplate = {
+                    ...template,
+                    name: document.getElementById('templateName').value,
+                    description: document.getElementById('templateDescription').value,
+                    settings: {
+                        includePlan: document.getElementById('savePlan').checked,
+                        includeFact: document.getElementById('saveFact').checked
+                    }
+                };
+                
+                await this.updateTemplate(templateId, updatedTemplate);
+                modal.hide();
+                
+                // Восстанавливаем оригинальный обработчик
+                form.onsubmit = originalHandler;
+                form.reset();
+            };
+        },
+        
+        // Обновить шаблон
+        async updateTemplate(templateId, templateData) {
+            try {
+                const response = await fetch(`/api/templates/${templateId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(templateData)
+                });
+                
+                if (response.ok) {
+                    // Обновляем локально
+                    const index = state.templates.findIndex(t => t.id == templateId);
+                    if (index !== -1) {
+                        state.templates[index] = templateData;
+                        this.saveToLocalStorage();
+                        this.updateTemplatesList();
+                        alert('Шаблон обновлен!');
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка обновления шаблона:', error);
+                // Обновляем локально как fallback
+                const index = state.templates.findIndex(t => t.id == templateId);
+                if (index !== -1) {
+                    state.templates[index] = templateData;
+                    this.saveToLocalStorage();
+                    this.updateTemplatesList();
+                    alert('Шаблон обновлен (локально)!');
+                }
+            }
+        }
+    };
     
     // Элементы DOM
     const elements = {
@@ -1009,6 +1434,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initTimeSelects();
         await loadCategories();
         await loadEvents();
+        await templateManager.loadTemplates();
         initEventHandlers();
         initCurrentTimeIndicator();
         updateWeekRange();
@@ -1700,116 +2126,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
-    // Раздел 4: Система шаблонов
-    async function loadTemplates() {
-        try {
-            const templates = localStorage.getItem('scheduleTemplates');
-            if (templates) {
-                state.templates = JSON.parse(templates);
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки шаблонов:', error);
-            state.templates = [];
-        }
-    }
-    
-    function saveTemplate(name) {
-        if (!name.trim()) {
-            alert('Введите название шаблона');
-            return;
-        }
-        
-        // Собираем данные плана из текущей недели
-        const templateData = {
-            id: Date.now(),
-            name: name.trim(),
-            createdAt: new Date().toISOString(),
-            data: collectPlanData(),
-            settings: {
-                startHour: state.timeSettings.startHour,
-                endHour: state.timeSettings.endHour
-            }
-        };
-        
-        state.templates.push(templateData);
-        saveTemplatesToStorage();
-        
-        alert(`Шаблон "${name}" сохранен!`);
-        return templateData;
-    }
-    
-    function collectPlanData() {
-        const planData = {};
-        
-        // Собираем события типа "план" из текущей недели
-        const planEvents = state.events.filter(event => event.type === 'plan');
-        
-        planEvents.forEach(event => {
-            const start = new Date(event.start_time);
-            const day = start.getDay();
-            const adjustedDay = day === 0 ? 6 : day - 1;
-            
-            if (!planData[adjustedDay]) planData[adjustedDay] = [];
-            
-            planData[adjustedDay].push({
-                time: event.start_time.split('T')[1].substring(0, 5),
-                categoryId: event.category_id,
-                duration: event.duration
-            });
-        });
-        
-        return planData;
-    }
-    
-    function applyTemplate(templateId) {
-        const template = state.templates.find(t => t.id == templateId);
-        if (!template) return;
-        
-        if (confirm(`Применить шаблон "${template.name}" к текущей неделе?`)) {
-            // Очищаем существующие события плана
-            state.events = state.events.filter(event => event.type !== 'plan');
-            
-            // Добавляем события из шаблона
-            const weekStart = getWeekStartDate();
-            
-            Object.keys(template.data).forEach(dayIndex => {
-                const day = parseInt(dayIndex);
-                const events = template.data[day];
-                
-                events.forEach(eventData => {
-                    const eventDate = new Date(weekStart);
-                    eventDate.setDate(weekStart.getDate() + day);
-                    
-                    const startTime = new Date(`${eventDate.toDateString()} ${eventData.time}`);
-                    const endTime = new Date(startTime);
-                    endTime.setMinutes(endTime.getMinutes() + (eventData.duration || 60));
-                    
-                    const newEvent = {
-                        id: Date.now() + Math.random(),
-                        type: 'plan',
-                        category_id: eventData.categoryId,
-                        start_time: startTime.toISOString(),
-                        end_time: endTime.toISOString(),
-                        description: `Из шаблона: ${template.name}`
-                    };
-                    
-                    state.events.push(newEvent);
-                });
-            });
-            
-            renderEvents();
-            updateBalanceWheel();
-            saveData();
-            
-            alert(`Шаблон "${template.name}" применен!`);
-        }
-    }
-    
-    function saveTemplatesToStorage() {
-        localStorage.setItem('scheduleTemplates', JSON.stringify(state.templates));
-    }
-    
+     
     // Раздел 5: Колесо баланса
     function updateBalanceWheel() {
         const period = elements.wheelPeriod.value;
@@ -2114,11 +2431,72 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.timeSettingsBtn.addEventListener('click', showTimeSettings);
         document.getElementById('timeSettingsForm').addEventListener('submit', saveTimeSettings);
         
-        // Шаблоны
-        elements.saveTemplateBtn.addEventListener('click', showSaveTemplateDialog);
-        elements.templatesBtn.addEventListener('click', showTemplatesModal);
-        document.getElementById('createTemplateBtn').addEventListener('click', createTemplate);
+                // Шаблоны - СОХРАНЕНИЕ
+        elements.saveTemplateBtn.addEventListener('click', () => {
+            // Сбрасываем форму
+            document.getElementById('saveTemplateForm').reset();
+            document.getElementById('savePlan').checked = true;
+            document.getElementById('saveFact').checked = true;
+            
+            const modal = new bootstrap.Modal(document.getElementById('saveTemplateModal'));
+            modal.show();
+        });
         
+        // Форма сохранения шаблона
+        document.getElementById('saveTemplateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('templateName').value.trim();
+            const description = document.getElementById('templateDescription').value.trim();
+            const includePlan = document.getElementById('savePlan').checked;
+            const includeFact = document.getElementById('saveFact').checked;
+            
+            if (!name) {
+                alert('Введите название шаблона');
+                return;
+            }
+            
+            const template = await templateManager.saveCurrentWeekAsTemplate(
+                name, description, includePlan, includeFact
+            );
+            
+            if (template) {
+                alert(`Шаблон "${name}" сохранен!`);
+                templateManager.updateTemplatesList();
+                
+                // Закрываем модальное окно
+                bootstrap.Modal.getInstance(document.getElementById('saveTemplateModal')).hide();
+                
+                // Сбрасываем форму
+                e.target.reset();
+            }
+        });
+        
+        // Шаблоны - ПРОСМОТР И УПРАВЛЕНИЕ
+        elements.templatesBtn.addEventListener('click', () => {
+            templateManager.updateTemplatesList();
+            const modal = new bootstrap.Modal(document.getElementById('templatesModal'));
+            modal.show();
+        });
+        
+        // Быстрое создание шаблона из текущего плана
+        document.getElementById('createTemplateBtn').addEventListener('click', async () => {
+            const nameInput = document.getElementById('newTemplateName');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                alert('Введите название шаблона');
+                return;
+            }
+            
+            const template = await templateManager.saveCurrentWeekAsTemplate(name, '', true, false);
+            
+            if (template) {
+                alert(`Шаблон "${name}" создан из текущего плана недели!`);
+                nameInput.value = '';
+                templateManager.updateTemplatesList();
+            }
+        });
         // Категории
         elements.addCategoryBtn.addEventListener('click', showCategoryModal);
         document.getElementById('categoryForm').addEventListener('submit', createCategory);
@@ -2137,6 +2515,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Колесо баланса
         elements.wheelPeriod.addEventListener('change', updateBalanceWheel);
+        
+        // Инициализация клавиш для выбора ячеек
+        initSelectionHandlers();
+        
+        // Быстрые кнопки для шаблонов
+        document.getElementById('saveTemplateQuickBtn').addEventListener('click', () => {
+            elements.saveTemplateBtn.click();
+        });
+    
+        document.getElementById('applyTemplateQuickBtn').addEventListener('click', () => {
+            elements.templatesBtn.click();
+        });
         
         // Инициализация клавиш для выбора ячеек
         initSelectionHandlers();
@@ -2284,93 +2674,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         bootstrap.Modal.getInstance(document.getElementById('timeSettingsModal')).hide();
     }
-    
-    function showSaveTemplateDialog() {
-        const name = prompt('Введите название шаблона:');
-        if (name) {
-            saveTemplate(name);
-        }
-    }
-    
-    function showTemplatesModal() {
-        updateTemplatesList();
-        const modal = new bootstrap.Modal(document.getElementById('templatesModal'));
-        modal.show();
-    }
-    
-    function updateTemplatesList() {
-        const list = document.getElementById('templatesList');
-        list.innerHTML = '';
-        
-        if (state.templates.length === 0) {
-            list.innerHTML = '<div class="text-center py-4 text-muted">Нет сохраненных шаблонов</div>';
-            return;
-        }
-        
-        state.templates.forEach(template => {
-            const date = new Date(template.createdAt);
-            const item = document.createElement('div');
-            item.className = 'list-group-item list-group-item-action';
-            item.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-1">${template.name}</h6>
-                        <small class="text-muted">Создан: ${date.toLocaleDateString()}</small>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn btn-sm btn-outline-primary apply-template-btn" data-id="${template.id}">
-                            Применить
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary rename-template-btn" data-id="${template.id}">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger delete-template-btn" data-id="${template.id}">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            list.appendChild(item);
-        });
-        
-        // Обработчики для кнопок шаблонов
-        document.querySelectorAll('.apply-template-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                applyTemplate(this.dataset.id);
-                bootstrap.Modal.getInstance(document.getElementById('templatesModal')).hide();
-            });
-        });
-        
-        document.querySelectorAll('.delete-template-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                if (confirm('Удалить этот шаблон?')) {
-                    deleteTemplate(this.dataset.id);
-                    updateTemplatesList();
-                }
-            });
-        });
-    }
-    
-    function createTemplate() {
-        const nameInput = document.getElementById('templateName');
-        const name = nameInput.value.trim();
-        
-        if (!name) {
-            alert('Введите название шаблона');
-            return;
-        }
-        
-        saveTemplate(name);
-        nameInput.value = '';
-        updateTemplatesList();
-    }
-    
-    function deleteTemplate(templateId) {
-        state.templates = state.templates.filter(t => t.id != templateId);
-        saveTemplatesToStorage();
-    }
-    
+     
     function showCategoryModal() {
         initColorPicker();
         const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
