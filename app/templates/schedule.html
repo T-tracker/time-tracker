@@ -808,12 +808,12 @@
     </div>
 </div>
 
-<!-- Быстрое событие -->
+<!-- Новое событие -->
 <div class="modal fade" id="quickEventModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Быстрое событие</h5>
+                <h5 class="modal-title">Новое событие</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="quickEventForm">
@@ -857,7 +857,25 @@
         </div>
     </div>
 </div>
-
+<div class="quick-add-buttons mt-3">
+    <div class="btn-group btn-group-sm">
+        <button class="btn btn-outline-success" id="quickBreakfastBtn">
+            <i class="bi bi-cup-hot"></i> Завтрак
+        </button>
+        <button class="btn btn-outline-primary" id="quickWorkBtn">
+            <i class="bi bi-briefcase"></i> Работа
+        </button>
+        <button class="btn btn-outline-warning" id="quickSportBtn">
+            <i class="bi bi-heart-pulse"></i> Тренировка
+        </button>
+        <button class="btn btn-outline-info" id="quickStudyBtn">
+            <i class="bi bi-book"></i> Учёба
+        </button>
+        <button class="btn btn-outline-secondary" id="quickRestBtn">
+            <i class="bi bi-moon"></i> Отдых
+        </button>
+    </div>
+</div>
 <!-- Подтверждение удаления -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1">
     <div class="modal-dialog">
@@ -888,6 +906,47 @@ document.addEventListener('DOMContentLoaded', function() {
         slotMinutes: 15,
         slotHeight: 25
     };
+
+      function roundToNearest15Minutes(date, roundType = 'round') {
+        const minutes = date.getMinutes();
+        let roundedMinutes;
+        
+        // Округляем до ближайших 15 минут
+        if (roundType === 'ceil') {
+            // Вверх (для окончания событий)
+            roundedMinutes = Math.ceil(minutes / 15) * 15;
+        } else if (roundType === 'floor') {
+            // Вниз (для начала событий)
+            roundedMinutes = Math.floor(minutes / 15) * 15;
+        } else {
+            // Ближайшее
+            roundedMinutes = Math.round(minutes / 15) * 15;
+        }
+        
+        const newDate = new Date(date);
+        
+        if (roundedMinutes === 60) {
+            newDate.setHours(newDate.getHours() + 1);
+            newDate.setMinutes(0);
+        } else {
+            newDate.setMinutes(roundedMinutes);
+        }
+        
+        newDate.setSeconds(0);
+        newDate.setMilliseconds(0);
+        
+        return newDate;
+    }
+    
+    function formatTimeForAPI(date) {
+        return date.toISOString().slice(0, 19).replace('T', ' ');
+    }
+    
+    function parseTimeFromAPI(timeString) {
+        // Преобразуем строку времени из API в Date
+        return new Date(timeString.replace(' ', 'T') + 'Z');
+    }  
+
     
     // Состояние приложения
     const state = {
@@ -1031,25 +1090,272 @@ document.addEventListener('DOMContentLoaded', function() {
         const cell = event.target.closest('.plan-column, .fact-column');
         if (!cell) return;
         
-        event.preventDefault();
-        event.stopPropagation();
-        
-        const cellId = cell.dataset.id;
-        
-        if (state.isCtrlPressed || event.ctrlKey || event.metaKey) {
-            // Ctrl+Click: Добавить/удалить из выбора
-            toggleCellSelection(cell, cellId);
-        } else if (state.isShiftPressed && state.lastSelectedCell) {
-            // Shift+Click: Выделить диапазон
-            selectCellRange(state.lastSelectedCell, cell);
-        } else {
-            // Одиночный клик: Очистить и выбрать
-            clearSelection();
-            selectCell(cell, cellId);
+        // Если кликнули на само событие, открываем его редактирование
+        if (event.target.classList.contains('plan-event') || 
+            event.target.classList.contains('fact-event')) {
+            editEvent(event.target.dataset.eventId);
+            return;
         }
         
-        state.lastSelectedCell = cell;
-        updateBulkEditPanel();
+        // Иначе создаем новое событие в этой ячейке
+        createEventFromCell(cell);
+    }
+    
+    function createEventFromCell(cell) {
+        const day = parseInt(cell.dataset.day);
+        const time = cell.dataset.time;
+        const type = cell.dataset.type;
+        
+        // Определяем дату на основе выбранной недели
+        const weekStart = getWeekStartDate();
+        const eventDate = new Date(weekStart);
+        eventDate.setDate(weekStart.getDate() + day);
+        
+        // Время начала события
+        const [hours, minutes] = time.split(':').map(Number);
+        const startTime = new Date(eventDate);
+        startTime.setHours(hours, minutes, 0, 0);
+        
+        // Время окончания (+15 минут)
+        const endTime = new Date(startTime);
+        endTime.setMinutes(endTime.getMinutes() + 15);
+        
+        // Показываем быструю форму для создания события
+        showQuickAddModal(type, startTime, endTime);
+    }
+    
+    function showQuickAddModal(type, startTime, endTime) {
+        // Заполняем форму быстрого добавления
+        document.getElementById('quickType').value = type;
+        document.getElementById('startDate').value = startTime.toISOString().split('T')[0];
+        document.getElementById('startTime').value = 
+            `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+        document.getElementById('endDate').value = endTime.toISOString().split('T')[0];
+        document.getElementById('endTime').value = 
+            `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+        
+        // Показываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
+        modal.show();
+        
+        // Фокусируемся на выборе категории
+        setTimeout(() => {
+            document.getElementById('categorySelect').focus();
+        }, 500);
+    }
+    
+    async function editEvent(eventId) {
+        const event = state.events.find(e => e.id == eventId);
+        if (!event) return;
+        
+        // Заполняем форму редактирования
+        document.querySelector(`input[name="eventType"][value="${event.type}"]`).checked = true;
+        document.getElementById('categorySelect').value = event.category_id;
+        
+        const startTime = new Date(event.start_time);
+        const endTime = new Date(event.end_time);
+        
+        document.getElementById('startDate').value = startTime.toISOString().split('T')[0];
+        document.getElementById('startTime').value = 
+            `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+        document.getElementById('endDate').value = endTime.toISOString().split('T')[0];
+        document.getElementById('endTime').value = 
+            `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+        
+        document.getElementById('eventDescription').value = event.description || '';
+        
+        // Показываем модальное окно с кнопкой обновления/удаления
+        const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
+        modal.show();
+        
+        // Меняем кнопку на "Обновить"
+        const submitBtn = document.querySelector('#addEventForm button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Обновить событие';
+        submitBtn.classList.remove('btn-primary');
+        submitBtn.classList.add('btn-warning');
+        
+        // Добавляем кнопку удаления
+        let deleteBtn = document.getElementById('deleteEventBtn');
+        if (!deleteBtn) {
+            deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'btn btn-danger';
+            deleteBtn.id = 'deleteEventBtn';
+            deleteBtn.innerHTML = '<i class="bi bi-trash me-2"></i>Удалить';
+            deleteBtn.onclick = () => deleteEventById(eventId);
+            
+            document.querySelector('#addEventForm .modal-footer').prepend(deleteBtn);
+        }
+        
+        // Обработчик обновления
+        const form = document.getElementById('addEventForm');
+        const originalSubmit = form.onsubmit;
+        
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const updatedData = {
+                id: eventId,
+                type: document.querySelector('input[name="eventType"]:checked').value,
+                category_id: parseInt(document.getElementById('categorySelect').value),
+                start_time: `${document.getElementById('startDate').value} ${document.getElementById('startTime').value}:00`,
+                end_time: `${document.getElementById('endDate').value} ${document.getElementById('endTime').value}:00`,
+                description: document.getElementById('eventDescription').value
+            };
+            
+            await updateEvent(eventId, updatedData);
+            modal.hide();
+            
+            // Восстанавливаем оригинальную форму
+            form.reset();
+            submitBtn.textContent = originalText;
+            submitBtn.classList.remove('btn-warning');
+            submitBtn.classList.add('btn-primary');
+            deleteBtn.remove();
+            form.onsubmit = originalSubmit;
+        };
+    }
+    
+    async function updateEvent(eventId, eventData) {
+        try {
+            // Округляем время
+            const startTime = roundToNearest15Minutes(
+                new Date(eventData.start_time), 
+                'floor'
+            );
+            const endTime = roundToNearest15Minutes(
+                new Date(eventData.end_time), 
+                'ceil'
+            );
+            
+            eventData.start_time = formatTimeForAPI(startTime);
+            eventData.end_time = formatTimeForAPI(endTime);
+            
+            const response = await fetch(`/api/events/${eventId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(eventData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Обновляем событие в состоянии
+                const index = state.events.findIndex(e => e.id == eventId);
+                if (index !== -1) {
+                    state.events[index] = result.event;
+                }
+                
+                renderEvents();
+                updateBalanceWheel();
+                saveEventsToLocalStorage();
+                
+                alert('Событие обновлено!');
+                return result;
+            }
+        } catch (error) {
+            console.error('Ошибка обновления события:', error);
+            alert('Не удалось обновить событие');
+        }
+    }
+    
+    async function deleteEventById(eventId) {
+        if (!confirm('Удалить это событие?')) return;
+        
+        try {
+            const response = await fetch(`/api/events/${eventId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Удаляем событие из состояния
+                state.events = state.events.filter(e => e.id != eventId);
+                
+                renderEvents();
+                updateBalanceWheel();
+                saveEventsToLocalStorage();
+                
+                // Закрываем модальное окно
+                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+                
+                alert('Событие удалено!');
+            }
+        } catch (error) {
+            console.error('Ошибка удаления события:', error);
+            alert('Не удалось удалить событие');
+        }
+    }
+
+    async function bulkFill(type) {
+        const categoryId = elements.bulkCategorySelect.value;
+        if (!categoryId) {
+            alert('Выберите категорию');
+            return;
+        }
+        
+        const eventsToCreate = [];
+        const weekStart = getWeekStartDate();
+        
+        state.selectedCells.forEach(cellId => {
+            const [day, time, cellType] = cellId.split('-');
+            
+            if (cellType === type) {
+                const eventDate = new Date(weekStart);
+                eventDate.setDate(weekStart.getDate() + parseInt(day));
+                
+                const [hours, minutes] = time.split(':').map(Number);
+                const startTime = new Date(eventDate);
+                startTime.setHours(hours, minutes, 0, 0);
+                
+                const endTime = new Date(startTime);
+                endTime.setMinutes(endTime.getMinutes() + 15);
+                
+                eventsToCreate.push({
+                    type: type,
+                    category_id: parseInt(categoryId),
+                    start_time: formatTimeForAPI(startTime),
+                    end_time: formatTimeForAPI(endTime),
+                    description: 'Массовое заполнение'
+                });
+            }
+        });
+        
+        if (eventsToCreate.length === 0) {
+            alert('Не выбрано ни одной ячейки для заполнения');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/bulk-events', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ events: eventsToCreate })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Добавляем новые события в состояние
+                state.events = state.events.concat(result.events);
+                
+                renderEvents();
+                updateBalanceWheel();
+                saveEventsToLocalStorage();
+                clearSelection();
+                
+                alert(`Создано ${result.events.length} событий`);
+            }
+        } catch (error) {
+            console.error('Ошибка массового заполнения:', error);
+            alert('Ошибка при массовом заполнении');
+        }
     }
     
     function toggleCellSelection(cell, cellId) {
@@ -1643,20 +1949,83 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Вспомогательные функции
     async function loadEvents() {
-        try {
+                try {
             const [year, week] = elements.weekPicker.value.split('-W');
-            const response = await fetch(`/api/v1/events/week/${year}-W${week}`);
+            const response = await fetch(`/api/events/week/${year}-W${week.padStart(2, '0')}`);
             
             if (response.ok) {
                 const data = await response.json();
-                state.events = data.events || data;
+                if (data.success) {
+                    state.events = data.events;
+                    renderEvents();
+                    updateBalanceWheel();
+                } else {
+                    console.error('Ошибка загрузки событий:', data.error);
+                }
+            } else {
+                console.error('Ошибка сети при загрузке событий');
             }
         } catch (error) {
             console.error('Ошибка загрузки событий:', error);
+            // Загружаем из localStorage как fallback
+            const savedEvents = localStorage.getItem(`events_${currentWeekKey}`);
+            if (savedEvents) {
+                state.events = JSON.parse(savedEvents);
+                renderEvents();
+            }
         }
-        
-        renderEvents();
-        updateBalanceWheel();
+    }
+
+    async function saveEvent(eventData) {
+        try {
+            // Округляем время начала и окончания
+            const startTime = roundToNearest15Minutes(
+                new Date(eventData.start_time), 
+                'floor' // Начало округляем вниз
+            );
+            const endTime = roundToNearest15Minutes(
+                new Date(eventData.end_time), 
+                'ceil' // Окончание округляем вверх
+            );
+            
+            // Обновляем время в данных события
+            eventData.start_time = formatTimeForAPI(startTime);
+            eventData.end_time = formatTimeForAPI(endTime);
+            
+            const response = await fetch('/api/events', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(eventData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Добавляем событие в состояние
+                state.events.push(result.event);
+                renderEvents();
+                updateBalanceWheel();
+                
+                // Сохраняем в localStorage для надежности
+                saveEventsToLocalStorage();
+                
+                return result;
+            } else {
+                alert('Ошибка при сохранении события: ' + result.error);
+                return null;
+            }
+        } catch (error) {
+            console.error('Ошибка сохранения события:', error);
+            alert('Не удалось сохранить событие');
+            return null;
+        }
+    }
+    
+    function saveEventsToLocalStorage() {
+        const weekKey = elements.weekPicker.value;
+        localStorage.setItem(`events_${weekKey}`, JSON.stringify(state.events));
     }
     
     function renderEvents() {
@@ -1767,6 +2136,69 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Загрузка шаблонов
         loadTemplates();
+        document.getElementById('addEventForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const eventData = {
+                type: document.querySelector('input[name="eventType"]:checked').value,
+                category_id: parseInt(document.getElementById('categorySelect').value),
+                start_time: `${document.getElementById('startDate').value} ${document.getElementById('startTime').value}:00`,
+                end_time: `${document.getElementById('endDate').value} ${document.getElementById('endTime').value}:00`,
+                description: document.getElementById('eventDescription').value
+            };
+            
+            if (!eventData.category_id) {
+                alert('Выберите категорию');
+                return;
+            }
+            
+            const result = await saveEvent(eventData);
+            
+            if (result) {
+                // Закрываем модальное окно
+                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+                
+                // Сбрасываем форму
+                this.reset();
+                
+                alert('Событие успешно добавлено!');
+            }
+        });
+        document.getElementById('quickBreakfastBtn').addEventListener('click', () => 
+            addQuickEvent('еда', 30, 'Завтрак'));
+        document.getElementById('quickWorkBtn').addEventListener('click', () => 
+            addQuickEvent('работа', 60, 'Работа'));
+        document.getElementById('quickSportBtn').addEventListener('click', () => 
+            addQuickEvent('спорт', 60, 'Тренировка'));
+        document.getElementById('quickStudyBtn').addEventListener('click', () => 
+            addQuickEvent('учеба', 90, 'Учёба'));
+        document.getElementById('quickRestBtn').addEventListener('click', () => 
+            addQuickEvent('отдых', 30, 'Отдых'));
+        
+        async function addQuickEvent(categoryName, durationMinutes, description) {
+            // Находим категорию
+            const category = state.categories.find(c => 
+                c.name.toLowerCase() === categoryName.toLowerCase());
+            
+            if (!category) {
+                alert(`Категория "${categoryName}" не найдена. Создайте её сначала.`);
+                return;
+            }
+            
+            const now = new Date();
+            const startTime = roundToNearest15Minutes(now, 'floor');
+            const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+            
+            const eventData = {
+                type: 'fact',
+                category_id: category.id,
+                start_time: formatTimeForAPI(startTime),
+                end_time: formatTimeForAPI(endTime),
+                description: description
+            };
+            
+            await saveEvent(eventData);
+        }
     }
     
     function setCurrentWeek() {
