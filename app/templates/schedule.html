@@ -26,26 +26,28 @@
     
     /* Панель управления */
     .schedule-controls {
-        background-color: white;
+        background: var(--card-bg);
         padding: 1rem;
         border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(248, 181, 209, 0.05);
         margin-bottom: 1rem;
+        border: 1px solid rgba(248, 181, 209, 0.15);
     }
     
     /* Таблица расписания с раздельными колонками */
     .schedule-container {
-        background: white;
+        background: var(--card-bg);
         border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px rgba(248, 181, 209, 0.1);
         overflow: hidden;
         overflow-x: auto;
         width: 100%;
+        border: 1px solid rgba(248, 181, 209, 0.15);
     }
     
     .schedule-header {
-        background-color: var(--primary-color);
-        color: white;
+        background: var(--gradient-primary);
+        color: var(--text-color);
         padding: 1rem;
         position: sticky;
         top: 0;
@@ -60,13 +62,13 @@
     
     .time-column {
         width: 80px;
-        background-color: #f8f9fa;
+        background-color: rgba(248, 181, 209, 0.05);
         font-size: 0.85rem;
         color: #666;
         text-align: center;
         vertical-align: top;
         padding: 0.5rem;
-        border-right: 1px solid #dee2e6;
+        border-right: 1px solid rgba(248, 181, 209, 0.2);
         position: sticky;
         left: 0;
         z-index: 50;
@@ -75,60 +77,61 @@
     .day-column {
         width: 140px;
         vertical-align: top;
-        border-right: 1px solid #dee2e6;
+        border-right: 1px solid rgba(248, 181, 209, 0.2);
         position: relative;
     }
     
     .day-header {
-        background-color: #e9ecef;
+        background-color: rgba(248, 181, 209, 0.1);
         padding: 0.75rem;
         font-weight: 600;
         text-align: center;
-        border-bottom: 2px solid #dee2e6;
+        border-bottom: 2px solid rgba(248, 181, 209, 0.3);
         position: sticky;
         top: 60px;
         z-index: 80;
+        color: var(--text-color);
     }
     
     .plan-column {
-        background-color: rgba(25, 135, 84, 0.05);
-        border-bottom: 1px solid rgba(25, 135, 84, 0.1);
-        height: 25px; /* Уменьшенная высота */
+        background-color: rgba(167, 210, 203, 0.05); /* Мятный */
+        border-bottom: 1px solid rgba(167, 210, 203, 0.1);
+        height: 25px;
         padding: 0;
         position: relative;
         cursor: pointer;
     }
     
     .fact-column {
-        background-color: rgba(13, 110, 253, 0.05);
-        border-bottom: 1px solid rgba(13, 110, 253, 0.1);
-        height: 25px; /* Уменьшенная высота */
+        background-color: rgba(205, 180, 219, 0.05); /* Лавандовый */
+        border-bottom: 1px solid rgba(205, 180, 219, 0.1);
+        height: 25px;
         padding: 0;
         position: relative;
         cursor: pointer;
     }
     
     .plan-header {
-        background-color: #d1e7dd;
-        color: #801932;
+        background-color: rgba(167, 210, 203, 0.2); /* Мятный 20% */
+        color: #2d6a4f; /* Темно-мятный текст */
         padding: 0.4rem;
         text-align: center;
         font-size: 0.85rem;
         font-weight: 600;
-        border-bottom: 1px solid #badbcc;
+        border-bottom: 1px solid rgba(167, 210, 203, 0.3);
         position: sticky;
         top: 105px;
         z-index: 70;
     }
     
     .fact-header {
-        background-color: #d1ecf1;
-        color: #091111;
+        background-color: rgba(205, 180, 219, 0.2); /* Лавандовый 20% */
+        color: #6d5a8a; /* Темно-лавандовый текст */
         padding: 0.4rem;
         text-align: center;
         font-size: 0.85rem;
         font-weight: 600;
-        border-bottom: 1px solid #bee5eb;
+        border-bottom: 1px solid rgba(205, 180, 219, 0.3);
         position: sticky;
         top: 105px;
         z-index: 70;
@@ -156,29 +159,29 @@
     }
     
     .plan-event {
-        background-color: rgba(25, 135, 84, 0.15);
-        border-color: #939393;
+        background-color: rgba(167, 210, 203, 0.15);
+        border-color: #a7d2cb; /* Мятный */
     }
     
     .fact-event {
-        background-color: rgba(13, 110, 253, 0.15);
-        border-color: #0d6efd;
+        background-color: rgba(205, 180, 219, 0.15);
+        border-color: #cdb4db; /* Лавандовый */
     }
     
     /* Выделение ячеек */
     .plan-column.selected {
-        background-color: rgba(25, 135, 84, 0.25);
-        box-shadow: inset 0 0 0 2px #198754;
+        background-color: rgba(167, 210, 203, 0.25);
+        box-shadow: inset 0 0 0 2px #a7d2cb;
     }
     
     .fact-column.selected {
-        background-color: rgba(13, 110, 253, 0.25);
-        box-shadow: inset 0 0 0 2px #0d6efd;
+        background-color: rgba(205, 180, 219, 0.25);
+        box-shadow: inset 0 0 0 2px #cdb4db;
     }
     
     /* Текущее время */
     .current-time-slot {
-        background-color: rgba(255, 193, 7, 0.15);
+        background-color: rgba(255, 209, 102, 0.15); /* Пастельно-желтый */
         position: relative;
     }
     
@@ -189,7 +192,7 @@
         top: 0;
         width: 100%;
         height: 2px;
-        background-color: #ffc107;
+        background-color: #ffd166; /* Пастельно-желтый */
         z-index: 5;
     }
     
@@ -199,14 +202,15 @@
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        background: white;
+        background: var(--card-bg);
         padding: 1rem 1.5rem;
         border-radius: 10px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 20px rgba(248, 181, 209, 0.15);
         z-index: 1000;
         display: none;
         align-items: center;
         gap: 15px;
+        border: 1px solid rgba(248, 181, 209, 0.2);
     }
     
     .bulk-edit-panel.show {
@@ -233,10 +237,11 @@
     
     /* Категории - правая панель */
     .categories-panel {
-        background: white;
+        background: var(--card-bg);
         border-radius: 15px;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px rgba(248, 181, 209, 0.1);
+        border: 1px solid rgba(248, 181, 209, 0.15);
     }
     
     .categories-list {
@@ -251,13 +256,14 @@
         padding: 0.75rem;
         margin-bottom: 0.5rem;
         border-radius: 8px;
-        background: #f8f9fa;
+        background: rgba(248, 181, 209, 0.05);
         border-left: 4px solid;
         transition: all 0.2s;
     }
     
     .category-item:hover {
-        background: #e9ecef;
+        background: rgba(248, 181, 209, 0.1);
+        transform: translateX(5px);
     }
     
     .category-color {
@@ -272,22 +278,25 @@
     .category-name {
         font-weight: 600;
         margin-bottom: 2px;
+        color: var(--text-color);
     }
     
     /* График продуктивности */
     .productivity-chart {
-        background: white;
+        background: var(--card-bg);
         border-radius: 15px;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px rgba(248, 181, 209, 0.1);
+        border: 1px solid rgba(248, 181, 209, 0.15);
     }
     
     /* Колесо баланса */
     .balance-wheel-container {
-        background: white;
+        background: var(--card-bg);
         border-radius: 15px;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px rgba(248, 181, 209, 0.1);
+        border: 1px solid rgba(248, 181, 209, 0.15);
         height: 350px;
         display: flex;
         flex-direction: column;
@@ -322,14 +331,17 @@
     
     .wheel-period-selector {
         margin-bottom: 1rem;
+        border: 1px solid rgba(248, 181, 209, 0.3);
+        background: rgba(248, 181, 209, 0.05);
     }
     
     /* Быстрые действия */
     .quick-actions {
-        background: white;
+        background: var(--card-bg);
         border-radius: 15px;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px rgba(248, 181, 209, 0.1);
+        border: 1px solid rgba(248, 181, 209, 0.15);
     }
     
     .actions-grid {
@@ -342,8 +354,8 @@
     .action-btn {
         padding: 0.75rem;
         border-radius: 10px;
-        border: 1px solid #e9ecef;
-        background: #f8f9fa;
+        border: 1px solid rgba(248, 181, 209, 0.3);
+        background: rgba(248, 181, 209, 0.05);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -355,9 +367,10 @@
     }
     
     .action-btn:hover {
-        background: #e9ecef;
+        background: rgba(248, 181, 209, 0.1);
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 8px rgba(248, 181, 209, 0.2);
+        border-color: var(--primary-color);
     }
     
     .action-icon {
@@ -368,6 +381,7 @@
     .action-text {
         font-size: 0.9rem;
         font-weight: 600;
+        color: var(--text-color);
     }
     
     /* Индикатор времени */
@@ -376,7 +390,7 @@
         left: 0;
         right: 0;
         height: 2px;
-        background-color: #ff6b6b;
+        background-color: #ff9a9e; /* Розово-красный */
         z-index: 20;
         pointer-events: none;
     }
@@ -388,8 +402,19 @@
         left: -5px;
         width: 8px;
         height: 8px;
-        background-color: #ff6b6b;
+        background-color: #ff9a9e; /* Розово-красный */
         border-radius: 50%;
+    }
+    
+    /* Баджи в заголовке таблицы */
+    .badge.bg-success {
+        background: linear-gradient(135deg, #a7d2cb 0%, #b8e1d9 100%) !important;
+        color: #2d6a4f;
+    }
+    
+    .badge.bg-primary {
+        background: var(--gradient-secondary) !important;
+        color: var(--text-color);
     }
     
     /* Адаптивность */
@@ -606,7 +631,18 @@
 </div>
 
 <!-- Модальные окна -->
-
+<!-- В модальном окне добавления события -->
+<div class="btn-group w-100" role="group">
+    <input type="radio" class="btn-check" name="eventType" id="typePlan" value="plan" checked>
+    <label class="btn btn-outline-success" for="typePlan" style="--bs-btn-color: #2d6a4f; --bs-btn-border-color: #a7d2cb; --bs-btn-hover-bg: rgba(167, 210, 203, 0.1);">
+        План
+    </label>
+    
+    <input type="radio" class="btn-check" name="eventType" id="typeFact" value="fact">
+    <label class="btn btn-outline-primary" for="typeFact" style="--bs-btn-color: #6d5a8a; --bs-btn-border-color: #cdb4db; --bs-btn-hover-bg: rgba(205, 180, 219, 0.1);">
+        Факт
+    </label>
+</div>
 <!-- Настройки времени -->
 <div class="modal fade" id="timeSettingsModal" tabindex="-1">
     <div class="modal-dialog">
@@ -1142,12 +1178,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function loadDefaultCategories() {
         state.categories = [
-            { id: 1, name: 'Работа', color: '#4361ee', description: 'Рабочие задачи' },
-            { id: 2, name: 'Учёба', color: '#7209b7', description: 'Обучение и образование' },
-            { id: 3, name: 'Спорт', color: '#f72585', description: 'Физическая активность' },
-            { id: 4, name: 'Отдых', color: '#4cc9f0', description: 'Время для отдыха' },
-            { id: 5, name: 'Семья', color: '#2a9d8f', description: 'Время с семьей' },
-            { id: 6, name: 'Хобби', color: '#e9c46a', description: 'Личные увлечения' }
+            { id: 1, name: 'Работа', color: '#f8b5d1', description: 'Рабочие задачи' },
+            { id: 2, name: 'Учёба', color: '#cdb4db', description: 'Обучение и образование' },
+            { id: 3, name: 'Спорт', color: '#a7d2cb', description: 'Физическая активность' },
+            { id: 4, name: 'Отдых', color: '#ffd6e7', description: 'Время для отдыха' },
+            { id: 5, name: 'Семья', color: '#ffafcc', description: 'Время с семьей' },
+            { id: 6, name: 'Хобби', color: '#e2d4f0', description: 'Личные увлечения' }
         ];
     }
     
@@ -1904,9 +1940,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function initColorPicker() {
         const colors = [
-            '#4361ee', '#3a0ca3', '#7209b7', '#f72585',
-            '#4cc9f0', '#2a9d8f', '#e9c46a', '#f4a261',
-            '#e76f51', '#264653', '#2a9d8f', '#e9c46a'
+            '#f8b5d1', '#ffafcc', '#cdb4db', '#e2d4f0', /* Розовые и лавандовые */
+            '#a7d2cb', '#a2d2ff', '#ffd6e7', '#ffe5ec', /* Мятный, голубой, светлые розовые */
+            '#ffc8dd', '#bde0fe', '#ffc6ff', '#bdb2ff'  /* Дополнительные пастельные */
         ];
         
         const container = document.getElementById('colorPicker');
@@ -1933,11 +1969,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 
                 // Добавляем выделение выбранной кнопке
-                this.style.border = '2px solid #000';
+                this.style.border = '2px solid var(--primary-dark)';
             });
             
             container.appendChild(colorBtn);
         });
+        
+        // Устанавливаем первый цвет по умолчанию
+        document.getElementById('selectedColor').value = colors[0];
     }
     
     function createCategory(event) {
