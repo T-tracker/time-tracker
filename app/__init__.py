@@ -14,24 +14,27 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
 
-    from app.routes.main_routes import main_bp
-    from app.routes.auth_routes import auth_bp
-    from app.routes.api_routes import api_bp
-    from app.routes.web_routes import web_pages_bp, schedule_api_bp
+    # Импортируем модели после инициализации db
+    from app.models import User, Category, Event, Template
 
-    app.register_blueprint(main_bp)
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
-    app.register_blueprint(schedule_api_bp, url_prefix='/api/schedule')
-    app.register_blueprint(web_pages_bp)
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
 
     with app.app_context():
-        from app.models import User
+        # Регистрируем Blueprints
+        from app.routes.auth_routes import auth_bp
+        from app.routes.main_routes import main_bp
+        from app.routes.api_routes import api_bp
+        from app.routes.web_routes import web_pages_bp, schedule_api_bp
 
-        @login_manager.user_loader
-        def load_user(user_id):
-            return User.query.get(int(user_id))
+        app.register_blueprint(auth_bp, url_prefix='/auth')
+        app.register_blueprint(main_bp)
+        app.register_blueprint(api_bp, url_prefix='/api/v1')
+        app.register_blueprint(schedule_api_bp)
+        app.register_blueprint(web_pages_bp)
 
+        # Создаем таблицы
         db.create_all()
 
     return app
