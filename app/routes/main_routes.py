@@ -26,6 +26,7 @@ def schedule():
     for i in range(7):
         day_date = start_of_week + timedelta(days=i)
         days.append({
+            'index': i,
             'name': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 
                     'Пятница', 'Суббота', 'Воскресенье'][i],
             'date': day_date.strftime('%d.%m.%Y'),
