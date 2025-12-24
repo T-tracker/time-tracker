@@ -50,7 +50,6 @@ class Category(db.Model):
         return f'<Category {self.name}>'
 
 
-# ВАЖНО: Event должен быть ОТДЕЛЬНЫМ классом, НЕ внутри Category!
 class Event(db.Model):
     __tablename__ = 'events'
 
@@ -58,18 +57,16 @@ class Event(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
 
-    # Добавляем тип: 'plan' или 'fact'
-    type = db.Column(db.String(10), default='plan')  # 'plan' или 'fact'
+    type = db.Column(db.String(10), default='plan')
 
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
     title = db.Column(db.String(200), default='')
-    source = db.Column(db.String(20), default='web')  # 'web', 'telegram', 'table_click'
+    source = db.Column(db.String(20), default='web')
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Отношения - исправляем названия таблиц
     user = db.relationship('User', backref='events')
     category = db.relationship('Category', backref='events')
 

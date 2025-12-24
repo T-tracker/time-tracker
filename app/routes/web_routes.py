@@ -18,8 +18,7 @@ schedule_api_bp = Blueprint('schedule_api', __name__)
 @login_required
 def schedule_page():
     """Страница с недельным расписанием"""
-    # ИНИЦИАЛИЗАЦИЯ КАТЕГОРИЙ ПО УМОЛЧАНИЮ для текущего пользователя
-    init_default_categories(current_user.id)
+    # НЕ создаем категории автоматически - пользователь сам создаст
 
     today = datetime.now().date()
     start_of_week = today - timedelta(days=today.weekday())
@@ -39,13 +38,13 @@ def schedule_page():
     week_number = today.isocalendar()[1]
     current_week = f"{today.year}-W{week_number:02d}"
 
-    # Получаем категории пользователя для передачи в шаблон
+    # Получаем категории пользователя (могут быть пустыми!)
     categories = Category.query.filter_by(user_id=current_user.id).all()
     categories_data = [{
         'id': cat.id,
         'name': cat.name,
         'color': cat.color,
-        'code': cat.code
+        'description': cat.description
     } for cat in categories]
 
     return render_template('schedule.html',
@@ -55,52 +54,6 @@ def schedule_page():
                            today=today.isoformat())
 
 
-def init_default_categories(user_id):
-    """Создать категории по умолчанию если их нет у пользователя"""
-    existing_categories = Category.query.filter_by(user_id=user_id).count()
-
-    if existing_categories == 0:
-        default_categories = [
-            {'name': 'РАБОТА', 'color': '#FF0000', 'code': 'WORK'},
-            {'name': 'УЧЁБА', 'color': '#00FF00', 'code': 'STUDY'},
-            {'name': 'ОТДЫХ', 'color': '#0000FF', 'code': 'REST'},
-            {'name': 'СПОРТ', 'color': '#FF00FF', 'code': 'SPORT'},
-            {'name': 'ХОББИ', 'color': '#FFFF00', 'code': 'HOBBY'}
-        ]
-
-        for cat_data in default_categories:
-            category = Category(
-                name=cat_data['name'],
-                color=cat_data['color'],
-                code=cat_data['code'],
-                user_id=user_id
-            )
-            db.session.add(category)
-        db.session.commit()
-        print(f"✅ Созданы категории по умолчанию для пользователя {user_id}")
-
-
-<<<<<<< Updated upstream
-@web_bp.route('/categories', methods=['GET'])
-def get_categories():
-    """ВСЕГДА работающий эндпоинт - с тестовыми данными"""
-    # Пытаемся получить из БД, если не получается - возвращаем тестовые
-    try:
-        # Проверяем, есть ли БД и таблицы
-        categories = Category.query.filter_by(user_id=1).all()
-        if categories:
-            # БД работает - возвращаем реальные данные
-            categories_list = [cat.to_dict() for cat in categories]
-            return jsonify({
-                'status': 'success',
-                'source': 'database',
-                'categories': categories_list
-            })
-    except Exception as e:
-        # БД не работает - возвращаем тестовые данные
-        print(f"⚠️ БД недоступна, используем тестовые данные: {e}")
-=======
->>>>>>> Stashed changes
 # ======== API РАСПИСАНИЯ ========
 
 @schedule_api_bp.route('/categories', methods=['GET'])
@@ -108,21 +61,13 @@ def get_categories():
 def get_categories():
     """Получить ВСЕ категории текущего пользователя"""
     categories = Category.query.filter_by(user_id=current_user.id).all()
-<<<<<<< Updated upstream
-    categories_list = [cat.to_dict() for cat in categories]
-=======
->>>>>>> Stashed changes
 
-    # Если нет категорий - создаем по умолчанию
-    if not categories:
-        init_default_categories(current_user.id)
-        categories = Category.query.filter_by(user_id=current_user.id).all()
-
+    # Возвращаем то, что есть (может быть пустым)
     categories_list = [{
         'id': cat.id,
         'name': cat.name,
         'color': cat.color,
-        'code': cat.code
+        'description': cat.description
     } for cat in categories]
 
     return jsonify({
@@ -130,17 +75,6 @@ def get_categories():
         'categories': categories_list
     })
 
-<<<<<<< Updated upstream
-@web_bp.route('/events', methods=['POST'])
-@schedule_api_bp.route('/events', methods=['POST'])
-@login_required
-
-def create_event():
-    """Создание события - логируем, но не сохраняем в БД"""
-    data = request.get_json()
-
-    # Логируем что пришло (для отладки)
-=======
 
 @schedule_api_bp.route('/categories', methods=['POST'])
 @login_required
@@ -149,7 +83,7 @@ def create_category():
     data = request.get_json()
 
     if not data or not data.get('name') or not data.get('color'):
-        return jsonify({'error': 'Name and color required'}), 400
+        return jsonify({'error': 'Название и цвет обязательны'}), 400
 
     # Проверяем, нет ли уже такой категории
     existing = Category.query.filter_by(
@@ -158,13 +92,14 @@ def create_category():
     ).first()
 
     if existing:
-        return jsonify({'error': 'Category already exists'}), 409
+        return jsonify({'error': 'Категория уже существует'}), 409
 
+    # Создаем новую категорию
     category = Category(
         user_id=current_user.id,
         name=data['name'].strip(),
         color=data['color'],
-        code=data.get('code', data['name'][:10].upper())  # Автогенерация кода
+        description=data.get('description', '')
     )
 
     db.session.add(category)
@@ -176,9 +111,70 @@ def create_category():
             'id': category.id,
             'name': category.name,
             'color': category.color,
-            'code': category.code
+            'description': category.description
         }
     }), 201
+
+
+@schedule_api_bp.route('/categories/<int:category_id>', methods=['PUT'])
+@login_required
+def update_category(category_id):
+    """Обновить категорию"""
+    category = Category.query.filter_by(
+        id=category_id,
+        user_id=current_user.id
+    ).first()
+
+    if not category:
+        return jsonify({'error': 'Категория не найдена'}), 404
+
+    data = request.get_json()
+
+    if 'name' in data:
+        category.name = data['name'].strip()
+
+    if 'color' in data:
+        category.color = data['color']
+
+    if 'description' in data:
+        category.description = data['description']
+
+    db.session.commit()
+
+    return jsonify({
+        'status': 'success',
+        'category': {
+            'id': category.id,
+            'name': category.name,
+            'color': category.color,
+            'description': category.description
+        }
+    })
+
+
+@schedule_api_bp.route('/categories/<int:category_id>', methods=['DELETE'])
+@login_required
+def delete_category(category_id):
+    """Удалить категорию"""
+    category = Category.query.filter_by(
+        id=category_id,
+        user_id=current_user.id
+    ).first()
+
+    if not category:
+        return jsonify({'error': 'Категория не найдена'}), 404
+
+    # Проверяем, нет ли событий с этой категорией
+    events_count = Event.query.filter_by(category_id=category_id).count()
+    if events_count > 0:
+        return jsonify({
+            'error': f'Нельзя удалить категорию. Есть {events_count} событий с этой категорией'
+        }), 400
+
+    db.session.delete(category)
+    db.session.commit()
+
+    return jsonify({'status': 'success', 'message': 'Категория удалена'})
 
 
 @schedule_api_bp.route('/events', methods=['POST'])
@@ -190,7 +186,6 @@ def create_event():
     if not data:
         return jsonify({'error': 'No data provided'}), 400
 
->>>>>>> Stashed changes
     print(f"📨 Получено событие: {data}")
 
     # Проверяем обязательные поля
@@ -231,31 +226,9 @@ def create_event():
 
     db.session.add(event)
     db.session.commit()
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
 
     return jsonify({
         'status': 'success',
-<<<<<<< Updated upstream
-        'message': 'Событие получено (тестовый режим)',
-        'received_data': data,
-        'event_id': 999  # Фиктивный ID
-    }), 201
-
-
-@web_bp.route('/health', methods=['GET'])
-def health_check():
-    """Проверка работы API"""
-    return jsonify({
-        'status': 'healthy',
-        'backend': 'Backend 2 Web API',
-        'timestamp': datetime.utcnow().isoformat(),
-        'endpoints': ['/categories', '/events', '/health']
-    })
-=======
->>>>>>> Stashed changes
         'event_id': event.id,
         'message': 'Event created successfully',
         'type': event_type,
@@ -263,12 +236,7 @@ def health_check():
     }), 201
 
 
-<<<<<<< Updated upstream
-
-@schedule_api_bp.route('/week', methods=['GET'])
-=======
 @schedule_api_bp.route('/events/cell', methods=['POST'])
->>>>>>> Stashed changes
 @login_required
 def update_cell_event():
     """Обновить или создать событие для ячейки таблицы (кликабельные ячейки)"""
@@ -394,7 +362,7 @@ def get_week_events():
         'id': cat.id,
         'name': cat.name,
         'color': cat.color,
-        'code': cat.code
+        'description': cat.description
     } for cat in categories]
 
     return jsonify({
@@ -409,8 +377,6 @@ def get_week_events():
         'events_by_day': events_by_day,
         'total_events': len(events)
     })
-<<<<<<< Updated upstream
-=======
 
 
 @schedule_api_bp.route('/events/<int:event_id>', methods=['DELETE'])
@@ -440,4 +406,3 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat(),
         'version': '1.0'
     })
->>>>>>> Stashed changes
