@@ -1,8 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from sqlalchemy import event
-from sqlalchemy.orm import mapper
 
 # Создаем экземпляры ТОЛЬКО здесь
 db = SQLAlchemy()
@@ -18,6 +16,18 @@ def create_app():
     
     # Устанавливаем login view
     login_manager.login_view = 'auth.login'
+    
+    # Регистрация blueprints (ПЕРЕМЕЩЕНО ВВЕРХ)
+    from app.routes.main_routes import main_bp
+    from app.routes.auth_routes import auth_bp
+    from app.routes.api_routes import api_bp
+    from app.routes.web_routes import web_pages_bp, schedule_api_bp
+    
+    app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(api_bp, url_prefix='/api/v1')
+    app.register_blueprint(web_pages_bp)  # ← Это даст /schedule
+    app.register_blueprint(schedule_api_bp, url_prefix='/api/v1')
     
     # КОСТЫЛЬ: Патчим модель Category перед её использованием
     with app.app_context():
@@ -40,23 +50,8 @@ def create_app():
         # Переимпортируем, чтобы другие модули использовали патченную версию
         from app import models
         models.Category = PatchedCategory
-        from app.routes.web_routes import Category as _
-        from app.routes.api_routes import Category as _
     
-    # Регистрация blueprints
-    from app.routes.main_routes import main_bp
-    from app.routes.auth_routes import auth_bp
-    from app.routes.api_routes import api_bp
-    from app.routes.web_routes import web_pages_bp, schedule_api_bp
-    
-    app.register_blueprint(main_bp)
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
-    app.register_blueprint(web_pages_bp)  # ← Это даст /schedule
-    app.register_blueprint(schedule_api_bp, url_prefix='/api/v1')  # Исправлено
-    
-    # Импортируем модели и настраиваем user_loader внутри контекста
-    with app.app_context():
+        # Импортируем модели и настраиваем user_loader
         from app.models import User
         
         @login_manager.user_loader
