@@ -30,10 +30,14 @@
             /* Текст */
             --text-color: #33334d;         /* Темно-серо-синий для контраста */
             --text-muted: #666680;
+            /* Градиенты */
+            --gradient-primary: linear-gradient(135deg, #f8b5d1 0%, #ffd6e7 100%);
+            --gradient-secondary: linear-gradient(135deg, #cdb4db 0%, #e2d4f0 100%);
         }
         
         body {
             background-color: var(--light-bg);
+            background-image: radial-gradient(#ffd6e7 1px, transparent 1px);
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
             display: flex;
@@ -43,12 +47,18 @@
         .navbar-brand {
             font-weight: 700;
             color: var(--primary-color) !important;
+            text-shadow: 0 2px 4px rgba(248, 181, 209, 0.2);
         }
         
         .main-container {
             flex: 1;
             padding-top: 2rem;
             padding-bottom: 3rem;
+        }
+
+        .nav-link.active {
+            color: var(--primary-color) !important;
+            border-bottom: 2px solid var(--primary-color);
         }
         
         .card {
