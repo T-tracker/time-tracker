@@ -41,7 +41,7 @@ class Category(db.Model):
             'id': self.id,
             'name': self.name,
             'color': self.color,
-            'description': self.description,
+           # 'description': self.description,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     
