@@ -10,10 +10,26 @@
     
     <style>
         :root {
-            --primary-color: #4361ee;
-            --secondary-color: #3a0ca3;
-            --success-color: #4cc9f0;
-            --light-bg: #f8f9fa;
+                    /* Основные цвета палитры */
+            --primary-color: #f8b5d1;      /* Нежно-розовый */
+            --primary-dark: #e6a0c4;       /* Темнее розовый */
+            --primary-light: #ffd6e7;      /* Светло-розовый */
+            
+            --secondary-color: #cdb4db;    /* Лавандовый */
+            --secondary-dark: #b8a2cc;     /* Темнее лавандовый */
+            
+            --success-color: #a7d2cb;      /* Мятный */
+            --warning-color: #ffd166;      /* Пастельно-желтый */
+            --danger-color: #ff9a9e;       /* Розово-красный */
+            --info-color: #a2d2ff;         /* Пастельно-голубой */
+            
+            /* Нейтральные цвета */
+            --light-bg: #fff9fb;           /* Очень светлый розовый фон */
+            --card-bg: #fff;               /* Белый для карточек */
+            
+            /* Текст */
+            --text-color: #33334d;         /* Темно-серо-синий для контраста */
+            --text-muted: #666680;
         }
         
         body {
@@ -38,21 +54,25 @@
         .card {
             border: none;
             border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s, box-shadow 0.2s;
+            background: var(--card-bg);
+            box-shadow: 0 4px 15px rgba(248, 181, 209, 0.1);
+            border: 1px solid rgba(248, 181, 209, 0.15);
+            transition: transform 0.3s, box-shadow 0.3s;
         }
         
         .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(248, 181, 209, 0.2);
+            border-color: rgba(248, 181, 209, 0.3);
         }
         
         .stat-card {
             text-align: center;
             padding: 1.5rem;
             border-radius: 15px;
-            color: white;
+            color: var(--text-color);
             margin-bottom: 1rem;
+            border: none;
         }
         
         .stat-number {
@@ -108,7 +128,8 @@
         
         .form-control:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+            box-shadow: 0 0 0 0.25rem rgba(248, 181, 209, 0.25);
+            background-color: rgba(248, 181, 209, 0.05);
         }
         
         .alert {
