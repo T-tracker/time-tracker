@@ -14,36 +14,6 @@ def index():
     """Главная страница - теперь это расписание"""
     return redirect(url_for('main.schedule'))
 
-@main_bp.route('/schedule')
-@login_required
-def schedule():
-    """Страница с недельным расписанием и графиками"""
-    today = datetime.now().date()
-    start_of_week = today - timedelta(days=today.weekday())
-    
-    # Создаем список дней недели
-    days = []
-    for i in range(7):
-        day_date = start_of_week + timedelta(days=i)
-        days.append({
-            'index': i,
-            'name': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 
-                    'Пятница', 'Суббота', 'Воскресенье'][i],
-            'date': day_date.strftime('%d.%m.%Y'),
-            'full_date': day_date.strftime('%Y-%m-%d'),
-            'short_name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i]
-        })
-    
-    # Формат для input type="week"
-    week_number = today.isocalendar()[1]
-    current_week = f"{today.year}-W{week_number:02d}"
-    
-    return render_template('schedule.html', 
-                          days=days, 
-                          current_week=current_week)
-
-# ... остальные функции (profile, manage_categories и т.д.) оставьте без изменений
-
 @main_bp.route('/profile')
 @login_required
 def profile():
