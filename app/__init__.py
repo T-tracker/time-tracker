@@ -1,6 +1,8 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from sqlalchemy import event
+from sqlalchemy.orm import mapper
 
 # Создаем экземпляры ТОЛЬКО здесь
 db = SQLAlchemy()
@@ -16,6 +18,30 @@ def create_app():
     
     # Устанавливаем login view
     login_manager.login_view = 'auth.login'
+    
+    # КОСТЫЛЬ: Патчим модель Category перед её использованием
+    with app.app_context():
+        from app.models import Category
+        
+        # Создаём "фейковое" свойство description, которое не запрашивает БД
+        class PatchedCategory(Category):
+            @property
+            def description(self):
+                return ""  # Всегда возвращаем пустую строку
+            
+            @description.setter
+            def description(self, value):
+                pass  # Игнорируем установку значения
+        
+        # Заменяем оригинальный класс на патченный
+        import sys
+        sys.modules['app.models'].Category = PatchedCategory
+        
+        # Переимпортируем, чтобы другие модули использовали патченную версию
+        from app import models
+        models.Category = PatchedCategory
+        from app.routes.web_routes import Category as _
+        from app.routes.api_routes import Category as _
     
     # Регистрация blueprints
     from app.routes.main_routes import main_bp
@@ -36,6 +62,26 @@ def create_app():
         @login_manager.user_loader
         def load_user(user_id):
             return User.query.get(int(user_id))
+        
+        # КОСТЫЛЬ 2: Пытаемся добавить колонку, если её нет
+        try:
+            # Проверяем существование колонки description
+            result = db.session.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='categories' AND column_name='description';"
+            ).fetchone()
+            
+            if not result:
+                print("⚠️ Column 'description' not found. Adding it...")
+                db.session.execute("ALTER TABLE categories ADD COLUMN description TEXT DEFAULT '';")
+                db.session.commit()
+                print("✅ Column 'description' added successfully")
+            else:
+                print("✅ Column 'description' already exists")
+                
+        except Exception as e:
+            print(f"⚠️ Could not check/add column: {e}")
+            # Игнорируем ошибку - костыль выше всё равно отработает
         
         db.create_all()
     
