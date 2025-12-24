@@ -59,6 +59,8 @@
         .nav-link.active {
             color: var(--primary-color) !important;
             border-bottom: 2px solid var(--primary-color);
+            background-color: rgba(248, 181, 209, 0.1);
+            border-radius: 5px 5px 0 0;
         }
         
         .card {
@@ -80,6 +82,7 @@
             text-align: center;
             padding: 1.5rem;
             border-radius: 15px;
+            background: var(--gradient-primary);
             color: var(--text-color);
             margin-bottom: 1rem;
             border: none;
@@ -90,6 +93,10 @@
             font-weight: 800;
             line-height: 1;
             margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #e6a0c4 0%, #f8b5d1 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
         
         .category-color-dot {
@@ -99,41 +106,84 @@
             display: inline-block;
             margin-right: 8px;
             vertical-align: middle;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .event-type-badge {
             font-size: 0.75rem;
             padding: 0.25rem 0.5rem;
             border-radius: 20px;
+            background: rgba(248, 181, 209, 0.1);
+            border: 1px solid rgba(248, 181, 209, 0.3);
         }
         
         .btn-primary {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
+            background: var(--gradient-primary);
+            border: none;
+            color: var(--text-color);
+            font-weight: 600;
+            padding: 0.5rem 1.5rem;
+            transition: all 0.3s;
         }
         
         .btn-primary:hover {
-            background-color: var(--secondary-color);
-            border-color: var(--secondary-color);
+            background: linear-gradient(135deg, #e6a0c4 0%, #f8b5d1 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(248, 181, 209, 0.4);
+        }
+    
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+            background: transparent;
         }
         
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #a7d2cb 0%, #b8e1d9 100%);
+            border: none;
+            color: #2d6a4f;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff9a9e 0%, #ffb3b6 100%);
+            border: none;
+            color: #9d174d;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ffd166 0%, #ffe0a3 100%);
+            border: none;
+            color: #92400e;
+        }
+
         .action-card {
             height: 100%;
             cursor: pointer;
             border: 2px solid transparent;
+            background: linear-gradient(135deg, rgba(248, 181, 209, 0.05) 0%, rgba(255, 214, 231, 0.05) 100%);
             transition: all 0.3s;
         }
         
         .action-card:hover {
             border-color: var(--primary-color);
-            background-color: rgba(67, 97, 238, 0.05);
+            background: linear-gradient(135deg, rgba(248, 181, 209, 0.1) 0%, rgba(255, 214, 231, 0.1) 100%);
+            transform: translateY(-3px);
         }
         
         .footer {
-            background-color: white;
-            border-top: 1px solid #dee2e6;
+            background: linear-gradient(to right, #fff9fb, #ffeef5);
+            border-top: 1px solid rgba(248, 181, 209, 0.3);
             margin-top: auto;
             padding: 1.5rem 0;
+            color: var(--text-muted);
         }
         
         .form-control:focus {
@@ -144,16 +194,94 @@
         
         .alert {
             border: none;
-            border-radius: 10px;
+            border-left: 5px solid;
         }
-        
+
+        .alert-success {
+            background-color: rgba(167, 210, 203, 0.15);
+            border-left-color: var(--success-color);
+            color: #2d6a4f;
+        }
+            
+        .alert-danger {
+            background-color: rgba(255, 154, 158, 0.15);
+            border-left-color: var(--danger-color);
+            color: #9d174d;
+        }            
+       .alert-warning {
+            background-color: rgba(255, 209, 102, 0.15);
+            border-left-color: var(--warning-color);
+            color: #92400e;
+        }
+            
+        .alert-info {
+            background-color: rgba(162, 210, 255, 0.15);
+            border-left-color: var(--info-color);
+            color: #1e40af;
+        }
+            
+        .badge.bg-primary {
+            background: var(--gradient-primary) !important;
+            color: var(--text-color);
+        }
+            
+        .badge.bg-success {
+            background: linear-gradient(135deg, #a7d2cb 0%, #b8e1d9 100%) !important;
+            color: #2d6a4f;
+        }
+            
+        .badge.bg-danger {
+            background: linear-gradient(135deg, #ff9a9e 0%, #ffb3b6 100%) !important;
+            color: #9d174d;
+        }
+            
+        .badge.bg-warning {
+            background: linear-gradient(135deg, #ffd166 0%, #ffe0a3 100%) !important;
+            color: #92400e;
+        }
+            
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
+            
         .fade-in {
             animation: fadeIn 0.5s ease-out;
+        }
+            /* Навигация */
+        .navbar {
+            background: rgba(255, 249, 251, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(248, 181, 209, 0.2);
+        }
+        
+        /* Выпадающие меню */
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 25px rgba(248, 181, 209, 0.15);
+            border-radius: 10px;
+            border: 1px solid rgba(248, 181, 209, 0.2);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .dropdown-item:hover {
+            background-color: rgba(248, 181, 209, 0.1);
+            color: var(--primary-color);
+        }
+        
+        /* Модальные окна */
+        .modal-header {
+            background: var(--gradient-primary);
+            color: var(--text-color);
+            border-bottom: 1px solid rgba(248, 181, 209, 0.3);
+        }
+        
+        /* Табы */
+        .nav-tabs .nav-link.active {
+            background-color: rgba(248, 181, 209, 0.1);
+            border-color: var(--primary-color) var(--primary-color) transparent;
+            color: var(--primary-color);
         }
         
         @media (max-width: 768px) {
@@ -164,6 +292,30 @@
             .main-container {
                 padding-top: 1rem;
             }
+            
+            .navbar-brand span {
+                display: inline-block;
+            }
+        }
+        
+        /* Кастомные скроллбары */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(248, 181, 209, 0.1);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
         }
     </style>
     
