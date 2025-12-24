@@ -466,6 +466,11 @@
 
 {% block content %}
 <div class="fade-in">
+    <!-- Отладочная информация (можно удалить позже) -->
+    <div style="display: none;">
+        <p>Передано дней: {{ days|length }}</p>
+        <p>Первый день: {{ days[0].name if days else 'Нет данных' }}</p>
+    </div>
     <!-- Панель управления -->
     <div class="schedule-controls">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -548,7 +553,7 @@
                                 <th class="day-column">
                                     <div class="day-header">
                                         {{ day.name }}<br>
-                                        <small class="day-date" data-day="{{ day.index }}">{{ day.date }}</small>
+                                        <small class="day-date" data-full-date="{{ day.full_date }}">{{ day.date }}</small>
                                     </div>
                                     <div class="plan-header">План</div>
                                     <div class="fact-header">Факт</div>
@@ -1645,15 +1650,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         dayElements.forEach((el, index) => {
             const date = new Date(startDate);
-            date.setDate(startDate.getDate() + parseInt(el.dataset.day));
+            date.setDate(startDate.getDate() + index);
             el.textContent = formatDate(date);
+            el.dataset.fullDate = date.toISOString().split('T')[0];
         });
     }
     
     function formatDate(date) {
         const day = date.getDate().toString().padStart(2, '0');
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        return `${day}.${month}`;
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}`;
     }
     
     // Раздел 3.1: Динамическая подсветка текущего времени
