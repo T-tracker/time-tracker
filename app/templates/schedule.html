@@ -1762,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            const response = await fetch('/api/bulk-events', {
+            const response = await fetch('/api/schedule/bulk-events', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2275,7 +2275,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadEvents() {
                 try {
             const [year, week] = elements.weekPicker.value.split('-W');
-            const response = await fetch(`/api/events/week/${year}-W${week.padStart(2, '0')}`);
+            const response = await fetch(`/api/schedule/week/${year}-W${week.padStart(2, '0')}`);
             
             if (response.ok) {
                 const data = await response.json();
@@ -2316,7 +2316,7 @@ document.addEventListener('DOMContentLoaded', function() {
             eventData.start_time = formatTimeForAPI(startTime);
             eventData.end_time = formatTimeForAPI(endTime);
             
-            const response = await fetch('/api/events', {
+            const response = await fetch('/api/schedule/events', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
