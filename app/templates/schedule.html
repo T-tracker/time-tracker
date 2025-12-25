@@ -1160,18 +1160,35 @@ document.addEventListener('DOMContentLoaded', function() {
     // Раздел 1.3: Функционал работы с категориями
     async function loadCategories() {
         try {
-            const response = await fetch('/api/v1/categories');
+            console.log('Загрузка категорий с сервера...');
+
+            const response = await fetch('/api/v1/categories', {
+                method: 'GET',
+                credentials: 'include'  // Важно!
+            });
+
             if (response.ok) {
-                const data = await response.json();
-                state.categories = data.categories || data;
+                const categories = await response.json();
+                console.log('Категории загружены с сервера:', categories);
+
+                // ТОЛЬКО серверные категории
+                state.categories = categories;
+
+            } else if (response.status === 401) {
+                console.log('Пользователь не авторизован');
+                state.categories = [];  // Пустой массив для неавторизованных
+
             } else {
-                loadDefaultCategories();
+                console.error('Ошибка сервера:', response.status);
+                state.categories = [];  // Пустой массив при ошибке
             }
+
         } catch (error) {
-            console.error('Ошибка загрузки категорий:', error);
-            loadDefaultCategories();
+            console.error('Сетевая ошибка:', error);
+            state.categories = [];  // Пустой массив при сетевой ошибке
         }
-        
+
+        // ОБНОВЛЯЕМ ИНТЕРФЕЙС ПОСЛЕ ЗАГРУЗКИ
         updateCategorySelects();
         updateCategoriesList();
     }
@@ -1185,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', function() {
             { id: 5, name: 'Семья', color: '#ffafcc', description: 'Время с семьей' },
             { id: 6, name: 'Хобби', color: '#e2d4f0', description: 'Личные увлечения' }
         ];
-    }
+<!--    }-->
     
     function updateCategorySelects() {
         // Основной селект категорий
@@ -1645,15 +1662,22 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadEvents() {
         try {
             const [year, week] = elements.weekPicker.value.split('-W');
-            const response = await fetch(`/api/v1/events/week/${year}-W${week}`);
-            
+            const response = await fetch(`/api/schedule/events/week?year=${year}&week=${week}`, {
+                credentials: 'include'
+            });
+
             if (response.ok) {
                 const data = await response.json();
                 state.events = data.events || data;
+                renderEvents();
+                updateBalanceWheel();
+            } else {
+                console.log('Событий нет или ошибка:', response.status);
             }
         } catch (error) {
             console.error('Ошибка загрузки событий:', error);
         }
+    }
         
         renderEvents();
         updateBalanceWheel();
@@ -1724,7 +1748,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function saveData() {
         // Сохраняем события в localStorage (в реальном приложении - на сервер)
         localStorage.setItem('scheduleEvents', JSON.stringify(state.events));
-        localStorage.setItem('scheduleCategories', JSON.stringify(state.categories));
     }
     
     function initEventHandlers() {
@@ -1979,30 +2002,90 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('selectedColor').value = colors[0];
     }
     
-    function createCategory(event) {
+    async function createCategory(event) {
         event.preventDefault();
-        
-        const name = document.getElementById('categoryName').value.trim();
-        const color = document.getElementById('selectedColor').value;
-        const description = document.getElementById('categoryDescription').value.trim();
-        
-        if (!name) {
-            alert('Введите название категории');
-            return;
+
+    const name = document.getElementById('categoryName').value.trim();
+    const color = document.getElementById('selectedColor').value;
+    const description = document.getElementById('categoryDescription').value.trim();
+
+    if (!name) {
+        alert('Введите название категории');
+        return;
+    }
+
+    // Показываем загрузку
+    const submitBtn = document.querySelector('#categoryForm button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Создание...';
+    submitBtn.disabled = true;
+
+    try {
+        console.log(' Отправка категории на сервер:', { name, color, description });
+
+        // ОТПРАВЛЯЕМ НА СЕРВЕР
+        const response = await fetch('/api/v1/categories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include', // ВАЖНО для куков аутентификации
+            body: JSON.stringify({
+                name: name,
+                color: color,
+                description: description
+            })
+        });
+
+        console.log(' Статус ответа:', response.status);
+
+        if (response.ok) {
+            // ПОЛУЧАЕМ ОТВЕТ ОТ СЕРВЕРА
+            const category = await response.json();
+            console.log(' Категория создана на сервере:', category);
+
+            // ДОБАВЛЯЕМ В ЛОКАЛЬНОЕ СОСТОЯНИЕ
+            state.categories.push(category);
+
+            // ОБНОВЛЯЕМ UI
+            updateCategorySelects();
+            updateCategoriesList();
+
+            // Сохраняем в localStorage (на всякий случай)
+            saveData();
+
+            // ЗАКРЫВАЕМ МОДАЛКУ И ОЧИЩАЕМ
+            document.getElementById('categoryForm').reset();
+            bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
+
+            alert(' Категория создана и сохранена на сервере!');
+
+        } else {
+            // Ошибка от сервера
+            const errorData = await response.json();
+            console.error(' Ошибка сервера:', errorData);
+            alert(' Ошибка: ' + (errorData.error || 'Неизвестная ошибка сервера'));
         }
-        
-        const newCategory = {
-            id: Date.now(),
-            name,
-            color,
-            description
-        };
-        
-        state.categories.push(newCategory);
-        updateCategorySelects();
-        updateCategoriesList();
-        saveData();
-        
+
+    } catch (error) {
+        // Сетевая ошибка
+        console.error(' Сетевая ошибка:', error);
+        alert(' Сетевая ошибка. Проверьте подключение к интернету');
+
+    } finally {
+        // Восстанавливаем кнопку
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+function bulkFill(type) {
+    const categoryId = elements.bulkCategorySelect.value;
+    if (!categoryId) {
+        alert('Выберите категорию');
+        return;
+    }
+
         document.getElementById('categoryForm').reset();
         bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
     }

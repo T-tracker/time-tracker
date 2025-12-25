@@ -56,25 +56,6 @@ def schedule_page():
 
 # ======== API РАСПИСАНИЯ ========
 
-@schedule_api_bp.route('/categories', methods=['GET'])
-@login_required
-def get_categories():
-    """Получить ВСЕ категории текущего пользователя"""
-    categories = Category.query.filter_by(user_id=current_user.id).all()
-
-    # Возвращаем то, что есть (может быть пустым)
-    categories_list = [{
-        'id': cat.id,
-        'name': cat.name,
-        'color': cat.color,
-        'description': cat.description
-    } for cat in categories]
-
-    return jsonify({
-        'status': 'success',
-        'categories': categories_list
-    })
-
 
 @schedule_api_bp.route('/categories', methods=['POST'])
 @login_required
