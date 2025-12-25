@@ -979,8 +979,12 @@ document.addEventListener('DOMContentLoaded', function() {
         slotMinutes: 15,
         slotHeight: 25
     };
-
-      function roundToNearest15Minutes(date, roundType = 'round') {
+    
+    function formatTimeForAPI(date) {
+        return date.toISOString().slice(0, 19).replace('T', ' ');
+    }
+    
+    function roundToNearest15Minutes(date, roundType = 'round') {
         const minutes = date.getMinutes();
         let roundedMinutes;
         
@@ -1011,9 +1015,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return newDate;
     }
     
-    function formatTimeForAPI(date) {
-        return date.toISOString().slice(0, 19).replace('T', ' ');
-    }
     
     function parseTimeFromAPI(timeString) {
         // Преобразуем строку времени из API в Date
@@ -2273,26 +2274,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Вспомогательные функции
     async function loadEvents() {
-                try {
+        try {
             const [year, week] = elements.weekPicker.value.split('-W');
-            const response = await fetch(`/api/schedule/week/${year}-W${week.padStart(2, '0')}`);
+            const response = await fetch(`/api/events/week/${year}/${week}`);
             
             if (response.ok) {
                 const data = await response.json();
-                if (data.success) {
-                    state.events = data.events;
-                    renderEvents();
-                    updateBalanceWheel();
-                } else {
-                    console.error('Ошибка загрузки событий:', data.error);
-                }
-            } else {
-                console.error('Ошибка сети при загрузке событий');
+                state.events = data.events || data;
+                renderEvents();
+                updateBalanceWheel();
             }
         } catch (error) {
             console.error('Ошибка загрузки событий:', error);
             // Загружаем из localStorage как fallback
-            const savedEvents = localStorage.getItem(`events_${currentWeekKey}`);
+            const weekKey = elements.weekPicker.value;
+            const savedEvents = localStorage.getItem(`events_${weekKey}`);
             if (savedEvents) {
                 state.events = JSON.parse(savedEvents);
                 renderEvents();
@@ -2302,21 +2298,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function saveEvent(eventData) {
         try {
-            // Округляем время начала и окончания
-            const startTime = roundToNearest15Minutes(
-                new Date(eventData.start_time), 
-                'floor' // Начало округляем вниз
-            );
-            const endTime = roundToNearest15Minutes(
-                new Date(eventData.end_time), 
-                'ceil' // Окончание округляем вверх
-            );
+            // Округляем время
+            const startTime = roundToNearest15Minutes(new Date(eventData.start_time), 'floor');
+            const endTime = roundToNearest15Minutes(new Date(eventData.end_time), 'ceil');
             
-            // Обновляем время в данных события
             eventData.start_time = formatTimeForAPI(startTime);
             eventData.end_time = formatTimeForAPI(endTime);
             
-            const response = await fetch('/api/schedule/events', {
+            const response = await fetch('/api/events', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2332,18 +2321,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderEvents();
                 updateBalanceWheel();
                 
-                // Сохраняем в localStorage для надежности
+                // Сохраняем в localStorage
                 saveEventsToLocalStorage();
                 
                 return result;
-            } else {
-                alert('Ошибка при сохранении события: ' + result.error);
-                return null;
             }
         } catch (error) {
             console.error('Ошибка сохранения события:', error);
-            alert('Не удалось сохранить событие');
-            return null;
+            // Локальное сохранение как fallback
+            eventData.id = `local_${Date.now()}`;
+            state.events.push(eventData);
+            renderEvents();
+            updateBalanceWheel();
+            saveEventsToLocalStorage();
+            return { success: true, event: eventData };
         }
     }
     
@@ -2519,7 +2510,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Инициализация клавиш для выбора ячеек
         initSelectionHandlers();
         
-        // Быстрые кнопки для шаблонов
+        // Быстрые кнопки
         document.getElementById('saveTemplateQuickBtn').addEventListener('click', () => {
             elements.saveTemplateBtn.click();
         });
