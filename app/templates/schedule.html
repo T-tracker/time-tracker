@@ -2005,98 +2005,81 @@ document.addEventListener('DOMContentLoaded', function() {
     async function createCategory(event) {
         event.preventDefault();
 
-    const name = document.getElementById('categoryName').value.trim();
-    const color = document.getElementById('selectedColor').value;
-    const description = document.getElementById('categoryDescription').value.trim();
+        const name = document.getElementById('categoryName').value.trim();
+        const color = document.getElementById('selectedColor').value;
+        const description = document.getElementById('categoryDescription')?.value.trim() || '';
 
-    if (!name) {
-        alert('Введите название категории');
-        return;
-    }
-
-    // Показываем загрузку
-    const submitBtn = document.querySelector('#categoryForm button[type="submit"]');
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Создание...';
-    submitBtn.disabled = true;
-
-    try {
-        console.log(' Отправка категории на сервер:', { name, color, description });
-
-        // ОТПРАВЛЯЕМ НА СЕРВЕР
-        const response = await fetch('/api/v1/categories', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include', // ВАЖНО для куков аутентификации
-            body: JSON.stringify({
-                name: name,
-                color: color,
-                description: description
-            })
-        });
-
-        console.log(' Статус ответа:', response.status);
-
-        if (response.ok) {
-            // ПОЛУЧАЕМ ОТВЕТ ОТ СЕРВЕРА
-            const category = await response.json();
-            console.log(' Категория создана на сервере:', category);
-
-            // ДОБАВЛЯЕМ В ЛОКАЛЬНОЕ СОСТОЯНИЕ
-            state.categories.push(category);
-
-            // ОБНОВЛЯЕМ UI
-            updateCategorySelects();
-            updateCategoriesList();
-
-            // Сохраняем в localStorage (на всякий случай)
-            saveData();
-
-            // ЗАКРЫВАЕМ МОДАЛКУ И ОЧИЩАЕМ
-            document.getElementById('categoryForm').reset();
-            bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
-
-            alert(' Категория создана и сохранена на сервере!');
-
-        } else {
-            // Ошибка от сервера
-            const errorData = await response.json();
-            console.error(' Ошибка сервера:', errorData);
-            alert(' Ошибка: ' + (errorData.error || 'Неизвестная ошибка сервера'));
-        }
-
-    } catch (error) {
-        // Сетевая ошибка
-        console.error(' Сетевая ошибка:', error);
-        alert(' Сетевая ошибка. Проверьте подключение к интернету');
-
-    } finally {
-        // Восстанавливаем кнопку
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-    }
-}
-
-function bulkFill(type) {
-    const categoryId = elements.bulkCategorySelect.value;
-    if (!categoryId) {
-        alert('Выберите категорию');
-        return;
-    }
-
-        document.getElementById('categoryForm').reset();
-        bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
-    }
-    
-    function bulkFill(type) {
-        const categoryId = elements.bulkCategorySelect.value;
-        if (!categoryId) {
-            alert('Выберите категорию');
+        if (!name) {
+            alert('Введите название категории');
             return;
         }
-        
+
+        // Показываем загрузку
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Создание...';
+        submitBtn.disabled = true;
+
+        try {
+            console.log('📤 Отправка категории на сервер...');
+
+            const response = await fetch('/api/v1/categories', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',  // Важно для авторизации
+                body: JSON.stringify({
+                    name: name,
+                    color: color,
+                    description: description
+                })
+            });
+
+            console.log('📥 Ответ сервера:', response.status);
+
+            if (response.ok) {
+                const category = await response.json();
+                console.log('✅ Категория создана:', category);
+
+                // Добавляем в массив
+                if (window.state && window.state.categories) {
+                    window.state.categories.push(category);
+                }
+
+                // Обновляем UI
+                if (typeof updateCategoriesList === 'function') {
+                    updateCategoriesList();
+                }
+                if (typeof updateCategorySelects === 'function') {
+                    updateCategorySelects();
+                }
+
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('categoryModal'));
+                if (modal) modal.hide();
+
+                // Очищаем форму
+                document.getElementById('categoryForm').reset();
+
+                alert('✅ Категория создана!');
+
+            } else {
+                const error = await response.json();
+                alert('❌ Ошибка: ' + (error.error || 'Неизвестная ошибка'));
+            }
+
+        } catch (error) {
+            console.error('❌ Сетевая ошибка:', error);
+            alert('❌ Сетевая ошибка. Проверьте подключение');
+        } finally {
+            // Возвращаем кнопку
+            if (submitBtn) {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+    }
         const category = state.categories.find(c => c.id == categoryId);
         if (!category) return;
         
