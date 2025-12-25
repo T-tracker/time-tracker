@@ -12,7 +12,7 @@ main_bp = Blueprint('main', __name__)
 @login_required
 def index():
     """Главная страница - теперь это расписание"""
-    return redirect(url_for('main.schedule'))
+    return redirect(url_for('web_pages.schedule_page'))
 
 @main_bp.route('/profile')
 @login_required
