@@ -9,5 +9,5 @@ class Config:
     if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    SQLALCHEMY_DATABASE_URI = DATABASE_URL or 'sqlite:///название.db'
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL or 'sqlite:///time-tracker-db.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
