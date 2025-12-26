@@ -16,6 +16,11 @@ def create_app():
     
     # Устанавливаем login view
     login_manager.login_view = 'auth.login'
+
+    with app.app_context():
+        # Эта команда создаст все таблицы, определенные в models.py, если они не существуют
+        db.create_all()
+        print(" * База данных проверена, таблицы готовы к работе.")
     
     # Регистрация blueprints (ПЕРЕМЕЩЕНО ВВЕРХ)
     from app.routes.main_routes import main_bp
