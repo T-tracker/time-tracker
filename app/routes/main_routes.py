@@ -549,3 +549,67 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat() + 'Z',
         'authenticated': current_user.is_authenticated
     })
+
+@main_bp.route('/debug/db')
+@login_required
+def debug_database():
+    """Полная диагностика базы данных"""
+    from app.models import User, Category, Event
+    
+    # Получаем текущего пользователя
+    current_user_id = current_user.id
+    
+    # 1. Проверяем таблицы
+    users = User.query.all()
+    categories = Category.query.filter_by(user_id=current_user_id).all()
+    events = Event.query.filter_by(user_id=current_user_id).all()
+    
+    # 2. Пробуем создать тестовую категорию
+    test_category = None
+    try:
+        test_category = Category(
+            user_id=current_user_id,
+            name="ТЕСТОВАЯ-" + datetime.now().strftime("%H:%M:%S"),
+            color="#FF0000"
+        )
+        db.session.add(test_category)
+        db.session.commit()
+        category_created = True
+    except Exception as e:
+        category_created = False
+        db.session.rollback()
+        category_error = str(e)
+    
+    # 3. Удаляем тестовую категорию (если создана)
+    if test_category and test_category.id:
+        try:
+            db.session.delete(test_category)
+            db.session.commit()
+            category_deleted = True
+        except:
+            category_deleted = False
+            db.session.rollback()
+    
+    return jsonify({
+        'current_user': {
+            'id': current_user_id,
+            'username': current_user.username,
+            'telegram_id': current_user.telegram_id
+        },
+        'database_stats': {
+            'total_users': len(users),
+            'user_categories': len(categories),
+            'user_events': len(events),
+            'all_categories': Category.query.count(),
+            'all_events': Event.query.count()
+        },
+        'test_operation': {
+            'category_created': category_created,
+            'category_error': category_error if not category_created else None,
+            'category_deleted': category_deleted if test_category else None
+        },
+        'api_endpoints': {
+            '/api/v1/categories': f"https://time-tracker-z6co.onrender.com/api/v1/categories",
+            '/api/events/week/2025-W52': f"https://time-tracker-z6co.onrender.com/api/events/week/2025-W52"
+        }
+    })
