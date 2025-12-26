@@ -178,8 +178,7 @@ def get_categories_api():
     return jsonify([{
         'id': cat.id,
         'name': cat.name,
-        'color': cat.color,
-        'description': cat.description or ''
+        'color': cat.color
     } for cat in categories])
 
 
@@ -210,8 +209,7 @@ def create_category_api():
         category = Category(
             user_id=current_user.id,
             name=name,
-            color=data.get('color', '#4361ee'),
-            description=data.get('description', '')
+            color=data.get('color', '#4361ee')
         )
         
         db.session.add(category)
@@ -222,8 +220,7 @@ def create_category_api():
             'category': {
                 'id': category.id,
                 'name': category.name,
-                'color': category.color,
-                'description': category.description
+                'color': category.color
             }
         }), 201
         
@@ -292,8 +289,7 @@ def get_events_api():
         'start_time': e.start_time.isoformat() + 'Z' if e.start_time else None,
         'end_time': e.end_time.isoformat() + 'Z' if e.end_time else None,
         'type': e.type,
-        'source': e.source,
-        'description': e.description or ''
+        'source': e.source
     } for e in events])
 
 
