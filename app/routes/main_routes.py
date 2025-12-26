@@ -130,7 +130,6 @@ def schedule():
             'short_name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i]
         })
     
-    # Формат для input type="week"
     week_number = today.isocalendar()[1]
     current_week = f"{today.year}-W{week_number:02d}"
     
