@@ -2723,6 +2723,7 @@ document.addEventListener('DOMContentLoaded', function() {
             elements.templatesBtn.click();
         });
         
+        // Форма добавления события
         document.getElementById('addEventForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -2750,7 +2751,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const result = await saveEvent(eventData);
             
-            if (result) {
+            if (result.success) {
                 // Закрываем модальное окно
                 bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
                 
@@ -2761,6 +2762,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
+        // Быстрые кнопки добавления событий
         document.getElementById('quickBreakfastBtn').addEventListener('click', () => 
             addQuickEvent('еда', 30, 'Завтрак'));
         document.getElementById('quickWorkBtn').addEventListener('click', () => 
@@ -2772,30 +2774,31 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('quickRestBtn').addEventListener('click', () => 
             addQuickEvent('отдых', 30, 'Отдых'));
     }
-        async function addQuickEvent(categoryName, durationMinutes, description) {
-            // Находим категорию
-            const category = state.categories.find(c => 
-                c.name.toLowerCase() === categoryName.toLowerCase());
-            
-            if (!category) {
-                alert(`Категория "${categoryName}" не найдена. Создайте её сначала.`);
-                return;
-            }
-            
-            const now = new Date();
-            const startTime = roundToNearest15Minutes(now, 'floor');
-            const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
-            
-            const eventData = {
-                type: 'fact',
-                category_id: category.id,
-                start_time: formatTimeForAPI(startTime),
-                end_time: formatTimeForAPI(endTime),
-                description: description
-            };
-            
-            await saveEvent(eventData);
+    
+    // Добавьте эту функцию отдельно
+    async function addQuickEvent(categoryName, durationMinutes, description) {
+        // Находим категорию
+        const category = state.categories.find(c => 
+            c.name.toLowerCase() === categoryName.toLowerCase());
+        
+        if (!category) {
+            alert(`Категория "${categoryName}" не найдена. Создайте её сначала.`);
+            return;
         }
+        
+        const now = new Date();
+        const startTime = roundToNearest15Minutes(now, 'floor');
+        const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+        
+        const eventData = {
+            type: 'fact',
+            category_id: category.id,
+            start_time: formatTimeForAPI(startTime),
+            end_time: formatTimeForAPI(endTime),
+            description: description
+        };
+        
+        await saveEvent(eventData);
     }
     
     function setCurrentWeek() {
@@ -3031,7 +3034,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function showQuickEventModal() {
-        updateCategorySelects(); // Обновляем список категорий
+        updateCategorySelects();
         const modal = new bootstrap.Modal(document.getElementById('quickEventModal'));
         modal.show();
     }
