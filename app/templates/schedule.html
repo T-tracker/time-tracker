@@ -2475,14 +2475,16 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('Ошибка рендеринга события:', error);
             }
+        }); // Закрываем forEach здесь!
+        
+        // Добавляем обработчики кликов на все события (ВНЕ цикла)
         document.querySelectorAll('.plan-event, .fact-event').forEach(eventElement => {
             eventElement.addEventListener('click', function(e) {
                 e.stopPropagation(); // Останавливаем всплытие
                 editEvent(this.dataset.eventId);
             });
         });
-        }
-    }
+    } // Закрываем функцию renderEvents здесь
     
     function getWeekStartDate() {
         const [year, week] = elements.weekPicker.value.split('-W');
