@@ -506,44 +506,49 @@
             </div>
             
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <!-- ДОБАВЬТЕ ЭТИ КНОПКИ -->
-                        <div class="btn-group" role="group">
-                            <button class="btn btn-outline-success" id="addPlanBtn">
-                                <i class="bi bi-plus-circle me-1"></i>Добавить план
-                            </button>
-                            <button class="btn btn-outline-primary" id="addFactBtn">
-                                <i class="bi bi-plus-circle me-1"></i>Добавить факт
-                            </button>
-                        </div>
-                        
-                        <!-- Улучшенный виджет выбора недели -->
-                        <div class="input-group" style="width: 300px;">
-                            <span class="input-group-text"><i class="bi bi-calendar-week"></i></span>
-                            <input type="week" class="form-control" id="weekPicker">
-                            <button class="btn btn-outline-secondary" type="button" id="prevWeekBtn">
-                                <i class="bi bi-chevron-left"></i>
-                            </button>
-                            <button class="btn btn-outline-secondary" type="button" id="nextWeekBtn">
-                                <i class="bi bi-chevron-right"></i>
-                            </button>
-                            <button class="btn btn-outline-primary" type="button" id="currentWeekBtn">
-                                Сегодня
-                            </button>
-                        </div>
-                        
-                        <!-- Кнопка сохранения как шаблона -->
-                        <button class="btn btn-outline-success" id="saveTemplateBtn">
-                            <i class="bi bi-save me-1"></i>Сохранить как шаблон
-                        </button>
-                        
-                        <!-- Кнопка шаблонов -->
-                        <button class="btn btn-primary" id="templatesBtn">
-                            <i class="bi bi-collection me-1"></i>Шаблоны
-                        </button>
-                    </div>
+                <!-- ДОБАВЬТЕ ЭТИ КНОПКИ -->
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-success" id="addPlanBtn">
+                        <i class="bi bi-plus-circle me-1"></i>Добавить план
+                    </button>
+                    <button class="btn btn-outline-primary" id="addFactBtn">
+                        <i class="bi bi-plus-circle me-1"></i>Добавить факт
+                    </button>
                 </div>
+                
+                <!-- Улучшенный виджет выбора недели -->
+                <div class="input-group" style="width: 300px;">
+                    <span class="input-group-text"><i class="bi bi-calendar-week"></i></span>
+                    <input type="week" class="form-control" id="weekPicker">
+                    <button class="btn btn-outline-secondary" type="button" id="prevWeekBtn">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" type="button" id="nextWeekBtn">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" type="button" id="currentWeekBtn">
+                        Сегодня
+                    </button>
+                </div>
+                
+                <!-- Кнопка сохранения как шаблона -->
+                <button class="btn btn-outline-success" id="saveTemplateBtn">
+                    <i class="bi bi-save me-1"></i>Сохранить как шаблон
+                </button>
+                
+                <!-- Кнопка шаблонов -->
+                <button class="btn btn-primary" id="templatesBtn">
+                    <i class="bi bi-collection me-1"></i>Шаблоны
+                </button>
             </div>
+        </div>
+    </div>
     
     <!-- Панель массового заполнения -->
     <div class="bulk-edit-panel" id="bulkEditPanel">
-        <div class="selected-count" id="selectedCount">0 ячеек выбрано</div
+        <div class="selected-count" id="selectedCount">0 ячеек выбрано</div>
+    </div>
+    <!-- ЗАКРЫВАЮЩИЙ ТЕГ ДЛЯ FADE-IN -->
+</div>
+<!-- ДОБАВЛЕН ЗАКРЫВАЮЩИЙ ТЕГ ДЛЯ БЛОКА CONTENT -->
+{% endblock %}
