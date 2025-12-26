@@ -154,10 +154,11 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        cursor: pointer;
+        cursor: pointer; /* Это важно! */
         border-left: 3px solid;
         z-index: 10;
         line-height: 1.2;
+        pointer-events: auto; /* Разрешает клики */
     }
     
     .plan-event {
@@ -472,9 +473,9 @@
         }
         
         .plan-column, .fact-column {
-            height: 22px;
-            min-width: 50px;
-            width: 50px;
+            position: relative;
+            cursor: pointer;
+            pointer-events: auto; /* Разрешает клики */
         }
         
         .bulk-edit-panel {
@@ -1450,6 +1451,7 @@ document.addEventListener('DOMContentLoaded', function() {
     init();
     
     async function init() {
+        console.log('Начало инициализации...');
         initSchedule();
         initTimeSelects();
         await loadCategories();
@@ -1458,8 +1460,13 @@ document.addEventListener('DOMContentLoaded', function() {
         initEventHandlers();
         initCurrentTimeIndicator();
         updateWeekRange();
-            // Показываем количество загруженных шаблонов
-        console.log(`Загружено шаблонов: ${state.templates.length}`);
+
+        console.log('Инициализация завершена');
+        console.log('Загружено событий:', state.events.length);
+        console.log('Загружено категорий:', state.categories.length);
+        
+        // Принудительно отобразите события для проверки
+        renderEvents();
     }
     
     // Раздел 1.1: Двухколоночная структура дня
@@ -1519,15 +1526,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function handleCellClick(event) {
-        const cell = event.target.closest('.plan-column, .fact-column');
-        if (!cell) return;
+        // Проверяем, кликнули ли на самом событии или на его дочерних элементах
+        const eventElement = event.target.closest('.plan-event, .fact-event');
         
-        // Если кликнули на само событие, открываем его редактирование
-        if (event.target.classList.contains('plan-event') || 
-            event.target.classList.contains('fact-event')) {
-            editEvent(event.target.dataset.eventId);
+        if (eventElement) {
+            // Кликнули на событии - редактируем
+            editEvent(eventElement.dataset.eventId);
             return;
         }
+    
+        // Иначе кликнули на ячейке - создаем новое событие
+        const cell = event.target.closest('.plan-column, .fact-column');
+        if (!cell) return;
         
         // Иначе создаем новое событие в этой ячейке
         const day = parseInt(cell.dataset.day);
@@ -1600,8 +1610,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function editEvent(eventId) {
+        console.log('editEvent called for id:', eventId);
+        
         const event = state.events.find(e => e.id == eventId);
-        if (!event) return;
+        if (!event) {
+            console.error('Событие не найдено:', eventId);
+            alert('Событие не найдено');
+            return;
+        }
         
         // Заполняем форму редактирования
         document.querySelector(`input[name="eventType"][value="${event.type}"]`).checked = true;
@@ -1619,18 +1635,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         document.getElementById('eventDescription').value = event.description || '';
         
-        // Показываем модальное окно с кнопкой обновления/удаления
+        // Показываем модальное окно
         const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
         modal.show();
         
-        // Меняем кнопку на "Обновить"
+        // Сохраняем ID редактируемого события
+        const modalElement = document.getElementById('addEventModal');
+        modalElement.dataset.editingEventId = eventId;
+        
+        // Меняем заголовок и кнопку
+        document.querySelector('#addEventModal .modal-title').textContent = 'Редактировать событие';
         const submitBtn = document.querySelector('#addEventForm button[type="submit"]');
-        const originalText = submitBtn.textContent;
-        submitBtn.textContent = 'Обновить событие';
+        submitBtn.textContent = 'Сохранить изменения';
         submitBtn.classList.remove('btn-primary');
         submitBtn.classList.add('btn-warning');
         
-        // Добавляем кнопку удаления
+        // Добавляем кнопку удаления, если её нет
         let deleteBtn = document.getElementById('deleteEventBtn');
         if (!deleteBtn) {
             deleteBtn = document.createElement('button');
@@ -1638,12 +1658,18 @@ document.addEventListener('DOMContentLoaded', function() {
             deleteBtn.className = 'btn btn-danger';
             deleteBtn.id = 'deleteEventBtn';
             deleteBtn.innerHTML = '<i class="bi bi-trash me-2"></i>Удалить';
-            deleteBtn.onclick = () => deleteEventById(eventId);
-            
             document.querySelector('#addEventForm .modal-footer').prepend(deleteBtn);
         }
         
-        // Обработчик обновления
+        // Обработчик удаления
+        deleteBtn.onclick = () => {
+            if (confirm('Удалить это событие?')) {
+                deleteEventById(eventId);
+                modal.hide();
+            }
+        };
+        
+        // Обработчик формы для обновления
         const form = document.getElementById('addEventForm');
         const originalSubmit = form.onsubmit;
         
@@ -1664,10 +1690,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Восстанавливаем оригинальную форму
             form.reset();
-            submitBtn.textContent = originalText;
-            submitBtn.classList.remove('btn-warning');
-            submitBtn.classList.add('btn-primary');
-            deleteBtn.remove();
             form.onsubmit = originalSubmit;
         };
     }
@@ -1687,33 +1709,26 @@ document.addEventListener('DOMContentLoaded', function() {
             eventData.start_time = formatTimeForAPI(startTime);
             eventData.end_time = formatTimeForAPI(endTime);
             
-            const response = await fetch(`/api/events/${eventId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(eventData)
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                // Обновляем событие в состоянии
-                const index = state.events.findIndex(e => e.id == eventId);
-                if (index !== -1) {
-                    state.events[index] = result.event;
-                }
-                
-                renderEvents();
-                updateBalanceWheel();
-                saveEventsToLocalStorage();
-                
-                alert('Событие обновлено!');
-                return result;
+            // Обновляем в массиве events
+            const index = state.events.findIndex(e => e.id == eventId);
+            if (index !== -1) {
+                state.events[index] = {
+                    ...state.events[index],
+                    ...eventData
+                };
             }
+            
+            // Обновляем отображение
+            renderEvents();
+            updateBalanceWheel();
+            saveEventsToLocalStorage();
+            
+            alert('Событие обновлено!');
+            return true;
         } catch (error) {
             console.error('Ошибка обновления события:', error);
             alert('Не удалось обновить событие');
+            return false;
         }
     }
     
@@ -2356,48 +2371,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function saveEvent(eventData) {
         try {
-            // Округляем время начала и окончания
+            // Округляем время
             const startTime = roundToNearest15Minutes(
                 new Date(eventData.start_time), 
-                'floor' // Начало округляем вниз
+                'floor'
             );
             const endTime = roundToNearest15Minutes(
                 new Date(eventData.end_time), 
-                'ceil' // Окончание округляем вверх
+                'ceil'
             );
             
             // Обновляем время в данных события
             eventData.start_time = formatTimeForAPI(startTime);
             eventData.end_time = formatTimeForAPI(endTime);
             
-            const response = await fetch('/api/events', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(eventData)
-            });
+            // Генерируем ID для локального хранения
+            const newEvent = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                ...eventData,
+                createdAt: new Date().toISOString()
+            };
             
-            const result = await response.json();
+            // Добавляем событие в состояние
+            state.events.push(newEvent);
             
-            if (result.success) {
-                // Добавляем событие в состояние
-                state.events.push(result.event);
-                renderEvents();
-                updateBalanceWheel();
-                
-                // Сохраняем в localStorage для надежности
-                saveEventsToLocalStorage();
-                
-                return result;
-            } else {
-                alert('Ошибка при сохранении события: ' + result.error);
-                return null;
-            }
+            // Обновляем интерфейс
+            renderEvents();
+            updateBalanceWheel();
+            
+            // Сохраняем в localStorage
+            saveEventsToLocalStorage();
+            
+            alert('Событие успешно добавлено!');
+            
+            return { success: true, event: newEvent };
+            
         } catch (error) {
             console.error('Ошибка сохранения события:', error);
             alert('Не удалось сохранить событие');
-            return null;
+            return { success: false, error: error.message };
         }
     }
     
@@ -2446,6 +2458,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 eventDiv.textContent = category ? category.name : 'Без категории';
                 eventDiv.dataset.eventId = event.id;
                 eventDiv.dataset.categoryId = event.category_id;
+                eventDiv.style.cursor = 'pointer';
+                eventDiv.title = 'Кликните для редактирования';
                 
                 if (category) {
                     eventDiv.style.borderLeftColor = category.color;
@@ -2461,6 +2475,11 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('Ошибка рендеринга события:', error);
             }
+        document.querySelectorAll('.plan-event, .fact-event').forEach(eventElement => {
+            eventElement.addEventListener('click', function(e) {
+                e.stopPropagation(); // Останавливаем всплытие
+                editEvent(this.dataset.eventId);
+            });
         });
     }
     
@@ -2551,6 +2570,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function initEventHandlers() {
         console.log('Инициализация обработчиков событий...');
+        // обработчик для всей таблицы
+        elements.scheduleTable.addEventListener('click', function(e) {
+            console.log('Клик по таблице:', e.target);
+            console.log('Класс элемента:', e.target.className);
+        });
         console.log('addPlanBtn найден:', !!elements.addPlanBtn);
         console.log('addFactBtn найден:', !!elements.addFactBtn);
         console.log('saveTemplateBtn найден:', !!elements.saveTemplateBtn);
