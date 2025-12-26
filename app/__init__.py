@@ -18,7 +18,13 @@ def create_app():
     login_manager.login_view = 'auth.login'
 
     with app.app_context():
-        # Эта команда создаст все таблицы, определенные в models.py, если они не существуют
+        # 1. Логируем, К КАКОЙ БД мы подключаемся (это ключевая проверка!)
+        database_url = app.config.get('SQLALCHEMY_DATABASE_URI', 'Не задана!')
+        # Скрываем пароль для безопасности логов
+        safe_url = database_url.replace('postgresql://', 'postgresql://(скрыто)@') if 'postgresql://' in database_url else database_url
+        print(f" * Конфигурация БД: {safe_url}")
+
+        # 2. Создаем все таблицы
         db.create_all()
         print(" * База данных проверена, таблицы готовы к работе.")
     
