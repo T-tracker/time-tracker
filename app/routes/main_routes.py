@@ -183,29 +183,37 @@ def get_categories_api():
 
 
 @main_bp.route('/api/v1/categories', methods=['POST'])
-@main_bp.route('/api/categories', methods=['POST'])  # Поддержка двух версий
 @login_required
 def create_category_api():
-    """Создать новую категорию"""
+    """Создать новую категорию - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
     try:
+        # 1. Получаем данные с проверкой
         data = request.get_json()
-        if not data or 'name' not in data:
+        print(f"DEBUG CREATE CATEGORY: Данные от фронтенда: {data}")
+        
+        if not data:
+            return jsonify({'error': 'Нет данных'}), 400
+        
+        name = data.get('name', '').strip()
+        if not name:
             return jsonify({'error': 'Название категории обязательно'}), 400
         
-        name = data['name'].strip()
-        if not name:
-            return jsonify({'error': 'Название не может быть пустым'}), 400
+        # 2. Проверяем пользователя
+        print(f"DEBUG: Текущий пользователь ID: {current_user.id}, имя: {current_user.username}")
         
-        # Проверяем уникальность
+        # 3. Проверяем уникальность (поиск по user_id + name)
         existing = Category.query.filter_by(
             user_id=current_user.id,
             name=name
         ).first()
         
         if existing:
-            return jsonify({'error': 'Категория с таким названием уже существует'}), 409
+            return jsonify({
+                'error': f'Категория "{name}" уже существует',
+                'existing_id': existing.id
+            }), 409
         
-        # Создаем категорию
+        # 4. СОЗДАЕМ категорию
         category = Category(
             user_id=current_user.id,
             name=name,
@@ -213,20 +221,54 @@ def create_category_api():
         )
         
         db.session.add(category)
-        db.session.commit()
+        db.session.flush()  # Получаем ID без коммита
+        print(f"DEBUG: Категория создана (пока не сохранена). ID: {category.id}")
         
+        # 5. КОММИТИМ транзакцию
+        db.session.commit()
+        print(f"DEBUG: Транзакция ЗАКОММИТЕНА! Категория {category.id} сохранена в БД")
+        
+        # 6. ПРОВЕРЯЕМ, что категория реально есть в БД
+        category_check = Category.query.filter_by(id=category.id).first()
+        print(f"DEBUG: Проверка после коммита: категория найдена? {bool(category_check)}")
+        
+        # 7. Возвращаем УСПЕШНЫЙ ответ
         return jsonify({
             'success': True,
+            'message': f'Категория "{name}" создана',
             'category': {
                 'id': category.id,
                 'name': category.name,
-                'color': category.color
+                'color': category.color,
+                'user_id': category.user_id
             }
         }), 201
         
     except Exception as e:
+        print(f"DEBUG: ОШИБКА при создании категории: {str(e)}")
+        import traceback
+        print(traceback.format_exc())  # Полный traceback
         db.session.rollback()
         return jsonify({'error': f'Ошибка сервера: {str(e)}'}), 500
+
+
+@main_bp.route('/debug/categories')
+@login_required
+def debug_user_categories():
+    """Показать все категории пользователя (для отладки)"""
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    
+    return jsonify({
+        'user_id': current_user.id,
+        'username': current_user.username,
+        'categories_count': len(categories),
+        'categories': [{
+            'id': c.id,
+            'name': c.name,
+            'color': c.color,
+            'created_at': c.created_at.isoformat() if c.created_at else None
+        } for c in categories]
+    })
 
 
 @main_bp.route('/api/categories/<int:category_id>', methods=['DELETE'])
