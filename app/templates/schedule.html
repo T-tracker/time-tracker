@@ -1526,7 +1526,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function handleCellClick(event) {
-        // Проверяем, кликнули ли на самом событии или на его дочерних элементах
+        // Проверяем, кликнули ли на самом событии
         const eventElement = event.target.closest('.plan-event, .fact-event');
         
         if (eventElement) {
@@ -1534,8 +1534,8 @@ document.addEventListener('DOMContentLoaded', function() {
             editEvent(eventElement.dataset.eventId);
             return;
         }
-    
-        // Иначе кликнули на ячейке - создаем новое событие
+        
+        // Проверяем, кликнули ли на ячейке (плане или факте)
         const cell = event.target.closest('.plan-column, .fact-column');
         if (!cell) return;
         
@@ -2476,14 +2476,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Ошибка рендеринга события:', error);
             }
         }); // Закрываем forEach здесь!
-        
-        // Добавляем обработчики кликов на все события (ВНЕ цикла)
-        document.querySelectorAll('.plan-event, .fact-event').forEach(eventElement => {
-            eventElement.addEventListener('click', function(e) {
-                e.stopPropagation(); // Останавливаем всплытие
-                editEvent(this.dataset.eventId);
-            });
-        });
     } // Закрываем функцию renderEvents здесь
     
     function getWeekStartDate() {
@@ -2573,29 +2565,30 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function initEventHandlers() {
         console.log('Инициализация обработчиков событий...');
-        // обработчик для всей таблицы
-        elements.scheduleTable.addEventListener('click', function(e) {
-            console.log('Клик по таблице:', e.target);
-            console.log('Класс элемента:', e.target.className);
-        });
-        console.log('addPlanBtn найден:', !!elements.addPlanBtn);
-        console.log('addFactBtn найден:', !!elements.addFactBtn);
-        console.log('saveTemplateBtn найден:', !!elements.saveTemplateBtn);
         
-        // Проверяем, что элементы существуют
-        if (!elements.addPlanBtn || !elements.addFactBtn) {
-            console.error('Кнопки не найдены в DOM!');
-            return;
-        }
+        // Обработчик для всей таблицы (делегирование событий)
+        elements.scheduleTable.addEventListener('click', handleCellClick);
+        
+        // Обработчики клавиш для массового выбора
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        
         // Навигация по неделям
         elements.currentWeekBtn.addEventListener('click', setCurrentWeek);
         elements.prevWeekBtn.addEventListener('click', prevWeek);
         elements.nextWeekBtn.addEventListener('click', nextWeek);
         elements.weekPicker.addEventListener('change', updateWeek);
-        elements.addPlanBtn.addEventListener('click', () => openAddEventForm('plan'));
-        elements.addFactBtn.addEventListener('click', () => openAddEventForm('fact'));
         
-                // Шаблоны - СОХРАНЕНИЕ
+        // Кнопки добавления событий
+        if (elements.addPlanBtn) {
+            elements.addPlanBtn.addEventListener('click', () => openAddEventForm('plan'));
+        }
+        
+        if (elements.addFactBtn) {
+            elements.addFactBtn.addEventListener('click', () => openAddEventForm('fact'));
+        }
+        
+        // Шаблоны - СОХРАНЕНИЕ
         elements.saveTemplateBtn.addEventListener('click', () => {
             // Проверяем, есть ли события Плана в текущей неделе
             const weekStart = getWeekStartDate();
@@ -2703,6 +2696,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert(`Ошибка создания шаблона: ${error.message}`);
             }
         });
+        
         // Категории
         elements.addCategoryBtn.addEventListener('click', showCategoryModal);
         document.getElementById('categoryForm').addEventListener('submit', createCategory);
@@ -2715,15 +2709,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Быстрые действия
         elements.quickEventBtn.addEventListener('click', showQuickEventModal);
-        elements.clearDayBtn.addEventListener('click', clearCurrentDay);
-        elements.copyDayBtn.addEventListener('click', copyCurrentDay);
         elements.statsBtn.addEventListener('click', showStatistics);
         
         // Колесо баланса
         elements.wheelPeriod.addEventListener('change', updateBalanceWheel);
-        
-        // Инициализация клавиш для выбора ячеек
-        initSelectionHandlers();
         
         // Быстрые кнопки для шаблонов
         document.getElementById('saveTemplateQuickBtn').addEventListener('click', () => {
@@ -2734,11 +2723,6 @@ document.addEventListener('DOMContentLoaded', function() {
             elements.templatesBtn.click();
         });
         
-        // Инициализация клавиш для выбора ячеек
-        initSelectionHandlers();
-        
-        // Загрузка шаблонов
-        loadTemplates();
         document.getElementById('addEventForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -2776,6 +2760,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Событие успешно добавлено!');
             }
         });
+        
         document.getElementById('quickBreakfastBtn').addEventListener('click', () => 
             addQuickEvent('еда', 30, 'Завтрак'));
         document.getElementById('quickWorkBtn').addEventListener('click', () => 
@@ -2786,7 +2771,7 @@ document.addEventListener('DOMContentLoaded', function() {
             addQuickEvent('учеба', 90, 'Учёба'));
         document.getElementById('quickRestBtn').addEventListener('click', () => 
             addQuickEvent('отдых', 30, 'Отдых'));
-        
+    }
         async function addQuickEvent(categoryName, durationMinutes, description) {
             // Находим категорию
             const category = state.categories.find(c => 
