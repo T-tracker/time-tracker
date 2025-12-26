@@ -67,17 +67,22 @@ class Event(db.Model):
         db.Index('idx_event_user_time', 'user_id', 'start_time'),
     )
     
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'category_id': self.category_id,
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'end_time': self.end_time.isoformat() if self.end_time else None,
-            'type': self.type,
-            'source': self.source,
-            'description': self.description,
-            'created_at': self.created_at.isoformat() if self.created_at else None
-        }
+def to_dict(self):
+    """Безопасная сериализация события с корректным форматом времени."""
+    def safe_iso(dt):
+        # Возвращает дату в формате ISO с 'Z' для UTC, если дата не None
+        return dt.isoformat() + 'Z' if dt else None
+    
+    return {
+        'id': self.id,
+        'category_id': self.category_id,
+        'start_time': safe_iso(self.start_time),
+        'end_time': safe_iso(self.end_time),
+        'type': self.type,
+        'source': self.source,
+        'description': self.description,
+        'created_at': safe_iso(self.created_at)
+    }
     
     def __repr__(self):
         return f'<Event {self.type} {self.start_time}>'
