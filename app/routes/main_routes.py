@@ -247,3 +247,137 @@ def api_my_events():
         'source': e.source,
         'created_at': e.created_at.isoformat()
     } for e in events])
+
+@main_bp.route('/api/categories', methods=['GET'])
+@login_required
+def api_get_categories():
+    """Получить ВСЕ категории текущего пользователя"""
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    categories_list = [cat.to_dict() for cat in categories]
+
+    return jsonify({
+        'status': 'success',
+        'count': len(categories_list),
+        'categories': categories_list
+    })
+
+@main_bp.route('/api/categories', methods=['POST'])
+@login_required
+def api_create_category():
+    """Создать новую категорию"""
+    data = request.get_json()
+    
+    if not data or 'name' not in data:
+        return jsonify({'error': 'Category name is required'}), 400
+    
+    # Проверка уникальности
+    existing = Category.query.filter_by(
+        user_id=current_user.id,
+        name=data['name'].strip()
+    ).first()
+    
+    if existing:
+        return jsonify({'error': 'Category already exists'}), 409
+    
+    # Создание категории
+    category = Category(
+        user_id=current_user.id,
+        name=data['name'].strip(),
+        color=data.get('color', '#4361ee'),
+        description=data.get('description', '')
+    )
+    
+    db.session.add(category)
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'category': category.to_dict(),
+        'message': f'Category "{category.name}" created successfully'
+    }), 201
+
+@main_bp.route('/api/events', methods=['POST'])
+@login_required
+def api_create_event():
+    """Создать новое событие (план) из веб-интерфейса"""
+    data = request.get_json()
+
+    # Проверяем обязательные поля
+    required = ['category_id', 'start_time', 'end_time']
+    if not all(field in data for field in required):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    # Проверяем, что категория принадлежит пользователю
+    category = Category.query.filter_by(
+        id=data['category_id'],
+        user_id=current_user.id
+    ).first()
+
+    if not category:
+        return jsonify({'error': 'Category not found'}), 404
+
+    # Парсим даты с учетом возможного формата с 'Z'
+    start_str = data['start_time'].replace('Z', '+00:00')
+    end_str = data['end_time'].replace('Z', '+00:00')
+    
+    event = Event(
+        user_id=current_user.id,
+        category_id=data['category_id'],
+        start_time=datetime.fromisoformat(start_str),
+        end_time=datetime.fromisoformat(end_str),
+        type=data.get('type', 'plan'),
+        source='web'
+    )
+
+    db.session.add(event)
+    db.session.commit()
+
+    return jsonify({
+        'status': 'success',
+        'event_id': event.id,
+        'message': 'Event created successfully'
+    }), 201
+
+@main_bp.route('/api/events/week/<week_id>', methods=['GET'])
+@main_bp.route('/api/events/week', methods=['GET'])
+@login_required
+def api_get_week_events(week_id=None):
+    """Получить события недели"""
+    if week_id:
+        try:
+            year_str, week_str = week_id.split('-W')
+            year = int(year_str)
+            week = int(week_str)
+        except ValueError:
+            return jsonify({'error': 'Invalid week format. Use: YYYY-Www'}), 400
+    else:
+        year = request.args.get('year', type=int)
+        week = request.args.get('week', type=int)
+        
+        if not year or not week:
+            today = datetime.now().date()
+            year, week, _ = today.isocalendar()
+    
+    # Рассчитываем начало недели (понедельник)
+    start_of_week = datetime.strptime(f'{year}-{week:02d}-1', "%Y-%W-%w")
+    end_of_week = start_of_week + timedelta(days=6)
+    
+    events = Event.query.filter(
+        Event.user_id == current_user.id,
+        Event.start_time >= start_of_week,
+        Event.start_time <= end_of_week + timedelta(days=1)
+    ).order_by(Event.start_time).all()
+    
+    events_list = [event.to_dict() for event in events]
+    
+    return jsonify({
+        'status': 'success',
+        'week': {
+            'year': year,
+            'week_number': week,
+            'start_date': start_of_week.strftime('%Y-%m-%d'),
+            'end_date': end_of_week.strftime('%Y-%m-%d')
+        },
+        'count': len(events_list),
+        'events': events_list
+    })
