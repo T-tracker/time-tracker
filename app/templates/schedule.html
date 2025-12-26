@@ -1918,34 +1918,34 @@ document.addEventListener('DOMContentLoaded', function() {
         return five;
     }
     
-    // Раздел 1.3: Функционал работы с категориями
     async function loadCategories() {
         try {
-            const response = await fetch('/api/v1/categories');
+            console.log('📥 Загружаю категории с сервера...');
+            const response = await fetch('/api/v1/categories', {
+                credentials: 'include'  // Добавьте это!
+            });
+
             if (response.ok) {
                 const data = await response.json();
-                state.categories = data.categories || data;
+                console.log('✅ Загружено категорий:', data.length || (data.categories ? data.categories.length : 0));
+
+                // Сохраняем категории
+                state.categories = data.categories || data || [];
+
+            } else if (response.status === 401) {
+                console.log('⚠️ Пользователь не авторизован');
+                state.categories = [];  // Пустой массив для неавторизованных
             } else {
-                loadDefaultCategories();
+                console.log('ℹ️ Нет категорий у пользователя');
+                state.categories = [];  // Пустой массив, а НЕ дефолтные!
             }
         } catch (error) {
-            console.error('Ошибка загрузки категорий:', error);
-            loadDefaultCategories();
+            console.error('❌ Ошибка сети:', error);
+            state.categories = [];  // Пустой массив при ошибке
         }
-        
+
         updateCategorySelects();
         updateCategoriesList();
-    }
-    
-    function loadDefaultCategories() {
-        state.categories = [
-            { id: 1, name: 'Работа', color: '#f8b5d1', description: 'Рабочие задачи' },
-            { id: 2, name: 'Учёба', color: '#cdb4db', description: 'Обучение и образование' },
-            { id: 3, name: 'Спорт', color: '#a7d2cb', description: 'Физическая активность' },
-            { id: 4, name: 'Отдых', color: '#ffd6e7', description: 'Время для отдыха' },
-            { id: 5, name: 'Семья', color: '#ffafcc', description: 'Время с семьей' },
-            { id: 6, name: 'Хобби', color: '#e2d4f0', description: 'Личные увлечения' }
-        ];
     }
     
     function updateCategorySelects() {
@@ -2884,104 +2884,60 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function createCategory(event) {
         event.preventDefault();
-        
+        alert('1️⃣ Начинаем создание категории');
+
         const name = document.getElementById('categoryName').value.trim();
         const color = document.getElementById('selectedColor').value;
-        const description = document.getElementById('categoryDescription').value.trim();
-        
-        if (!name) {
-            alert('Введите название категории');
-            return;
-        }
-        
-        const newCategory = {
-            id: Date.now(),
-            name,
-            color,
-            description
-        };
-        
-        state.categories.push(newCategory);
-        updateCategorySelects();
-        updateCategoriesList();
-        saveData();
-        
-        document.getElementById('categoryForm').reset();
-        bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
-    }
-    
-    function bulkFill(type) {
-        const categoryId = elements.bulkCategorySelect.value;
-        if (!categoryId) {
-            alert('Выберите категорию');
-            return;
-        }
-        
-        const category = state.categories.find(c => c.id == categoryId);
-        if (!category) return;
-        
-        state.selectedCells.forEach(cellId => {
-            const [day, time, cellType] = cellId.split('-');
-            
-            if (cellType === type) {
-                // Создаем событие
-                const weekStart = getWeekStartDate();
-                const eventDate = new Date(weekStart);
-                eventDate.setDate(weekStart.getDate() + parseInt(day));
-                
-                const [hours, minutes] = time.split(':').map(Number);
-                const startTime = new Date(eventDate);
-                startTime.setHours(hours, minutes, 0, 0);
-                
-                const endTime = new Date(startTime);
-                endTime.setMinutes(endTime.getMinutes() + config.slotMinutes);
-                
-                const eventId = `${cellId}-${Date.now()}`;
-                
-                // Добавляем или обновляем событие
-                const existingIndex = state.events.findIndex(e => 
-                    e.type === type && 
-                    new Date(e.start_time).getHours() === hours &&
-                    new Date(e.start_time).getMinutes() === minutes &&
-                    new Date(e.start_time).getDate() === eventDate.getDate()
-                );
-                
-                const eventData = {
-                    id: eventId,
-                    type: type,
-                    category_id: categoryId,
-                    start_time: startTime.toISOString(),
-                    end_time: endTime.toISOString(),
-                    description: ''
-                };
-                
-                if (existingIndex >= 0) {
-                    state.events[existingIndex] = eventData;
-                } else {
-                    state.events.push(eventData);
+
+        alert(`2️⃣ Данные: "${name}", цвет: ${color}`);
+
+        // ПРОСТОЙ запрос без сложностей
+        fetch('/api/v1/categories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'  // Добавляем!
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                name: name,
+                color: color
+                // description пока не отправляем
+            })
+        })
+        .then(response => {
+            alert(`3️⃣ Статус: ${response.status} ${response.statusText}`);
+
+            // Пробуем получить текст сначала
+            return response.text().then(text => {
+                alert(`4️⃣ Ответ сервера: ${text.substring(0, 100)}...`);
+
+                // Если ответ похож на HTML
+                if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                    throw new Error('Сервер вернул HTML вместо JSON');
                 }
-                
-                // Обновляем отображение
-                const cell = document.querySelector(`[data-id="${cellId}"]`);
-                if (cell) {
-                    // Очищаем существующие события в ячейке
-                    cell.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
-                    
-                    // Добавляем новое событие
-                    const eventDiv = document.createElement('div');
-                    eventDiv.className = type === 'plan' ? 'plan-event' : 'fact-event';
-                    eventDiv.textContent = category.name;
-                    eventDiv.dataset.eventId = eventId;
-                    eventDiv.dataset.categoryId = categoryId;
-                    eventDiv.style.borderLeftColor = category.color;
-                    cell.appendChild(eventDiv);
+
+                // Пробуем распарсить как JSON
+                try {
+                    return JSON.parse(text);
+                } catch {
+                    throw new Error(`Не JSON: ${text.substring(0, 50)}`);
                 }
-            }
+            });
+        })
+        .then(data => {
+            alert(`5️⃣ УСПЕХ! JSON: ${JSON.stringify(data)}`);
+
+            // Закрыть окно
+            const modal = bootstrap.Modal.getInstance(document.getElementById('categoryModal'));
+            if (modal) modal.hide();
+
+            // Обновить страницу
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            alert(`6️⃣ ОШИБКА: ${error.message}`);
         });
-        
-        clearSelection();
-        updateBalanceWheel();
-        saveData();
     }
     
     function bulkClear() {
