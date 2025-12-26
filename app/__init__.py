@@ -13,29 +13,38 @@ def create_app():
     # Инициализируем расширения
     db.init_app(app)
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
     
     # Диагностика подключения к БД
     with app.app_context():
         database_url = app.config.get('SQLALCHEMY_DATABASE_URI', 'Не задана!')
-        safe_url = database_url.replace('postgresql://', 'postgresql://(скрыто)@') if 'postgresql://' in database_url else database_url
+        safe_url = database_url.replace('postgres://', 'postgresql://(скрыто)@') if 'postgresql://' in database_url else database_url
         print(f" * Конфигурация БД: {safe_url}")
         
         # Создаем таблицы если их нет
         db.create_all()
         print(" * База данных проверена, таблицы готовы к работе.")
     
-    # Регистрация blueprints (УПРОЩЕНО!)
-    from app.routes.auth_routes import auth_bp
-    from app.routes.main_routes import main_bp
-    from app.routes.api_routes import api_bp
-    # УДАЛЯЕМ web_routes.py - его функциональность перенесем в main_routes
+    # Настраиваем login_manager
+    login_manager.login_view = 'auth.login'  # Указываем endpoint для логина
     
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(main_bp)  # Будет обрабатывать /schedule и API
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
+    # Регистрируем Blueprints (ИСПРАВЛЕНО - без auth_routes!)
+    try:
+        # Пробуем разные варианты импорта для надежности
+        from app.routes.main_routes import main_bp
+        from app.routes.api_routes import api_bp
+        
+        # Регистрируем main_bp (в нем уже есть все нужные маршруты)
+        app.register_blueprint(main_bp)
+        app.register_blueprint(api_bp, url_prefix='/api/v1')
+        
+    except ImportError as e:
+        print(f"Import Error: {e}")
+        # Минимальный маршрут для диагностики
+        @app.route('/')
+        def home():
+            return "App loaded. Import issues detected. Check logs."
     
-    # Настраиваем user_loader
+    # Настраиваем user_loader ДОЛЖЕН быть здесь
     from app.models import User
     
     @login_manager.user_loader
