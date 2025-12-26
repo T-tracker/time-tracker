@@ -358,56 +358,81 @@ def create_event_api():
         if not category:
             return jsonify({'error': 'Категория не найдена'}), 404
         
-        # Парсим время
-        start_str = data['start_time'].replace('Z', '+00:00')
-        end_str = data['end_time'].replace('Z', '+00:00')
+        # Парсим время (поддерживаем два формата)
+        start_str = data['start_time']
+        end_str = data['end_time']
+        
+        # Отладочная информация
+        print(f"DEBUG: Получено start_time: {start_str}")
+        print(f"DEBUG: Получено end_time: {end_str}")
         
         try:
-            start_time = datetime.fromisoformat(start_str)
-            end_time = datetime.fromisoformat(end_str)
-        except ValueError:
-            return jsonify({'error': 'Неверный формат времени'}), 400
+            # Формат 1: '2024-01-01 14:30:00' (наш фронтенд)
+            if ' ' in start_str and 'T' not in start_str:
+                start_time = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+                end_time = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
+            # Формат 2: ISO с 'Z' или без
+            else:
+                # Убираем 'Z' если есть и добавляем +00:00 для UTC
+                start_str_clean = start_str.replace('Z', '+00:00').replace(' ', 'T')
+                end_str_clean = end_str.replace('Z', '+00:00').replace(' ', 'T')
+                start_time = datetime.fromisoformat(start_str_clean)
+                end_time = datetime.fromisoformat(end_str_clean)
+                
+        except ValueError as e:
+            print(f"DEBUG: Ошибка парсинга времени: {e}")
+            return jsonify({'error': f'Неверный формат времени. Используйте формат "YYYY-MM-DD HH:MM:SS". Получено: {start_str}'}), 400
         
         # Проверяем, что конец позже начала
         if end_time <= start_time:
             return jsonify({'error': 'Время окончания должно быть позже времени начала'}), 400
         
-        # Ищем существующее событие
-        existing_event = Event.query.filter_by(
+        print(f"DEBUG: Парсинг успешен. start_time: {start_time}, end_time: {end_time}")
+        
+        # Проверяем, нет ли перекрывающихся событий (опционально)
+        overlapping_event = Event.query.filter(
+            Event.user_id == current_user.id,
+            Event.start_time < end_time,
+            Event.end_time > start_time,
+            Event.type == data['type']
+        ).first()
+        
+        if overlapping_event:
+            return jsonify({'error': 'Событие перекрывается с существующим'}), 400
+        
+        # Создаем новое событие
+        new_event = Event(
             user_id=current_user.id,
             category_id=data['category_id'],
             start_time=start_time,
-            type=data['type']
-        ).first()
+            end_time=end_time,
+            type=data['type'],
+            source='web'
+        )
         
-        if existing_event:
-            # Обновляем существующее
-            existing_event.end_time = end_time
-            message = 'Событие обновлено'
-            event_id = existing_event.id
-        else:
-            # Создаем новое
-            new_event = Event(
-                user_id=current_user.id,
-                category_id=data['category_id'],
-                start_time=start_time,
-                end_time=end_time,
-                type=data['type'],
-                source='web'
-            )
-            db.session.add(new_event)
-            message = 'Событие создано'
-            event_id = new_event.id
-        
+        db.session.add(new_event)
         db.session.commit()
         
+        print(f"DEBUG: Событие создано. ID: {new_event.id}")
+        
+        # Возвращаем полную информацию о событии
         return jsonify({
             'success': True,
-            'message': message,
-            'event_id': event_id
-        }), 200
+            'message': 'Событие создано',
+            'event': {
+                'id': new_event.id,
+                'category_id': new_event.category_id,
+                'start_time': new_event.start_time.isoformat() + 'Z',
+                'end_time': new_event.end_time.isoformat() + 'Z',
+                'type': new_event.type,
+                'source': new_event.source
+            }
+        }), 201
         
     except Exception as e:
+        print(f"DEBUG: Ошибка в create_event_api: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         db.session.rollback()
         return jsonify({'error': f'Ошибка сервера: {str(e)}'}), 500
 
@@ -430,54 +455,122 @@ def delete_event_api(event_id):
     return jsonify({'success': True})
 
 
+# И добавьте функцию для обновления события:
+@main_bp.route('/api/events/<int:event_id>', methods=['PUT'])
+@login_required
+def update_event_api(event_id):
+    """Обновить событие"""
+    try:
+        event = Event.query.filter_by(
+            id=event_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not event:
+            return jsonify({'error': 'Событие не найдено'}), 404
+        
+        data = request.get_json()
+        
+        # Обновляем поля если они переданы
+        if 'category_id' in data:
+            # Проверяем, что категория принадлежит пользователю
+            category = Category.query.filter_by(
+                id=data['category_id'],
+                user_id=current_user.id
+            ).first()
+            if not category:
+                return jsonify({'error': 'Категория не найдена'}), 404
+            event.category_id = data['category_id']
+        
+        if 'start_time' in data:
+            start_str = data['start_time']
+            if ' ' in start_str and 'T' not in start_str:
+                event.start_time = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+            else:
+                start_str_clean = start_str.replace('Z', '+00:00').replace(' ', 'T')
+                event.start_time = datetime.fromisoformat(start_str_clean)
+        
+        if 'end_time' in data:
+            end_str = data['end_time']
+            if ' ' in end_str and 'T' not in end_str:
+                event.end_time = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
+            else:
+                end_str_clean = end_str.replace('Z', '+00:00').replace(' ', 'T')
+                event.end_time = datetime.fromisoformat(end_str_clean)
+        
+        if 'type' in data:
+            event.type = data['type']
+        
+        # Проверяем, что конец позже начала
+        if event.end_time <= event.start_time:
+            return jsonify({'error': 'Время окончания должно быть позже времени начала'}), 400
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Событие обновлено',
+            'event': {
+                'id': event.id,
+                'category_id': event.category_id,
+                'start_time': event.start_time.isoformat() + 'Z',
+                'end_time': event.end_time.isoformat() + 'Z',
+                'type': event.type
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"DEBUG: Ошибка в update_event_api: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': f'Ошибка сервера: {str(e)}'}), 500
+
+
 # --- События по неделям ---
 @main_bp.route('/api/v1/events/week/<week_id>', methods=['GET'])
 @main_bp.route('/api/events/week/<week_id>', methods=['GET'])  # Поддержка двух версий
 @login_required
 def get_week_events_api(week_id):
-    """Получить события за неделю - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
+    """Получить события за неделю"""
     try:
         # Определяем неделю
         year_str, week_str = week_id.split('-W')
         year = int(year_str)
         week = int(week_str)
         
-        # ПРАВИЛЬНЫЙ расчет начала недели (ISO неделя)
-        import datetime
-        first_day = datetime.date(year, 1, 1)
-        # Находим первый четверг года
-        if first_day.weekday() > 3:  # Если первый день года после четверга
-            first_thursday = first_day + datetime.timedelta(days=(3 - first_day.weekday() + 7) % 7)
-        else:
-            first_thursday = first_day + datetime.timedelta(days=(3 - first_day.weekday()))
+        # Получаем даты недели
+        from datetime import datetime, timedelta
         
-        # Начало недели (понедельник)
-        start_of_week = first_thursday + datetime.timedelta(days=(week - 1) * 7 - 3)
-        end_of_week = start_of_week + datetime.timedelta(days=6, hours=23, minutes=59, seconds=59)
+        # Простой расчет недели
+        jan1 = datetime(year, 1, 1)
+        start_date = jan1 + timedelta(days=(week - 1) * 7 - jan1.weekday())
+        end_date = start_date + timedelta(days=7)
         
-        # Преобразуем в datetime
-        start_dt = datetime.datetime.combine(start_of_week, datetime.time.min)
-        end_dt = datetime.datetime.combine(end_of_week, datetime.time.max)
+        print(f"DEBUG: Загрузка событий для недели {week_id}")
+        print(f"DEBUG: Диапазон: {start_date} - {end_date}")
         
         # Получаем события за неделю
         events = Event.query.filter(
             Event.user_id == current_user.id,
-            Event.start_time >= start_dt,
-            Event.start_time <= end_dt
+            Event.start_time >= start_date,
+            Event.start_time < end_date
         ).order_by(Event.start_time).all()
+        
+        print(f"DEBUG: Найдено событий: {len(events)}")
         
         # Форматируем ответ
         events_list = []
         for event in events:
+            category = Category.query.get(event.category_id)
             events_list.append({
                 'id': event.id,
                 'category_id': event.category_id,
-                'category_name': event.category.name if event.category else '',
-                'category_color': event.category.color if event.category else '#4361ee',
-                'start_time': event.start_time.isoformat() + 'Z' if event.start_time else None,
-                'end_time': event.end_time.isoformat() + 'Z' if event.end_time else None,
+                'category_name': category.name if category else 'Без категории',
+                'category_color': category.color if category else '#4361ee',
+                'start_time': event.start_time.isoformat() + 'Z',
+                'end_time': event.end_time.isoformat() + 'Z',
                 'type': event.type,
-                'duration': int((event.end_time - event.start_time).total_seconds() / 60) if event.end_time and event.start_time else 0
+                'description': '',  # Можно добавить поле description в модель
+                'duration': int((event.end_time - event.start_time).total_seconds() / 60)
             })
         
         return jsonify({
@@ -485,17 +578,18 @@ def get_week_events_api(week_id):
             'week': {
                 'year': year,
                 'week': week,
-                'start_date': start_of_week.strftime('%Y-%m-%d'),
-                'end_date': end_of_week.strftime('%Y-%m-%d')
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': (end_date - timedelta(seconds=1)).strftime('%Y-%m-%d')
             },
             'events': events_list
         })
         
     except ValueError as e:
-        return jsonify({'error': f'Неверный формат недели: {str(e)}'}), 400
+        print(f"DEBUG: Неверный формат недели: {week_id}, ошибка: {e}")
+        return jsonify({'error': f'Неверный формат недели. Используйте формат "YYYY-Www"'}), 400
     except Exception as e:
+        print(f"DEBUG: Ошибка в get_week_events_api: {str(e)}")
         import traceback
-        print(f"ERROR in get_week_events_api: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'error': f'Ошибка сервера: {str(e)}'}), 500
 
