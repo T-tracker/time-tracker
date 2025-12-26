@@ -29,7 +29,6 @@ class Category(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(64), nullable=False)
     color = db.Column(db.String(7), default='#4361ee')
-    description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     __table_args__ = (
@@ -59,7 +58,6 @@ class Event(db.Model):
     end_time = db.Column(db.DateTime, nullable=False)
     type = db.Column(db.String(10), nullable=False, default='plan')
     source = db.Column(db.String(10), nullable=False, default='web')
-    description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     __table_args__ = (
@@ -80,7 +78,6 @@ def to_dict(self):
         'end_time': safe_iso(self.end_time),
         'type': self.type,
         'source': self.source,
-        'description': self.description,
         'created_at': safe_iso(self.created_at)
     }
     
