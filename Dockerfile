@@ -13,15 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Правильный способ: создаем скрипт инициализации
-RUN echo '#!/bin/bash\n\
-python -c "import sys; sys.path.insert(0, \"/app\")\n\
-from app.models import db\n\
-from run import app\n\
-with app.app_context():\n\
-    db.create_all()\n\
-    print(\"✅ Database tables created!\")"\n\
-exec gunicorn run:app --bind 0.0.0.0:${PORT:-10000}' > /app/start.sh \
-    && chmod +x /app/start.sh
+# Создаем отдельный скрипт для инициализации БД
+RUN echo 'from app.models import db\nfrom run import app\nwith app.app_context():\n    db.create_all()\n    print("Database initialized")' > init_db.py
 
-CMD ["/app/start.sh"]
+CMD ["sh", "-c", "python init_db.py && gunicorn run:app --bind 0.0.0.0:${PORT}"]
