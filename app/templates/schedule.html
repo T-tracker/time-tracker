@@ -2321,7 +2321,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadEvents() {
         try {
             const [year, week] = elements.weekPicker.value.split('-W');
-            const response = await fetch(`/api/events/week/${year}-W${week.padStart(2, '0')}`);
+            const response = await fetch(`/api/v1/events/week/${year}-W${week.padStart(2, '0')}`);
             
             if (response.ok) {
                 const data = await response.json();
