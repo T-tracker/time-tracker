@@ -9,6 +9,10 @@ login_manager = LoginManager()
 def create_app():
     app = Flask(__name__)
     app.config.from_object('config.Config')
+
+    # Внутри create_app(), после app.config.from_object(...)
+    print(f" * Подключение к БД: {app.config.get('SQLALCHEMY_DATABASE_URI', 'Не задано!')}")
+    print(f" * Переменная DATABASE_URL из окружения: {os.environ.get('DATABASE_URL', 'Не задана!')}")
     
     # Инициализируем расширения
     db.init_app(app)
