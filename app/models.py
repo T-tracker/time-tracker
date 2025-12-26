@@ -38,6 +38,7 @@ class Category(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'user_id': self.user_id,
             'name': self.name,
             'color': self.color,
             'created_at': self.created_at.isoformat() if self.created_at else None
