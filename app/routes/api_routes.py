@@ -179,14 +179,6 @@ def parse_duration(duration_str):
         # По умолчанию считаем минутами
         minutes = float(re.search(r'[\d.]+', duration_str).group())
         return timedelta(minutes=minutes)
-    
-# В КОНЕЦ api_routes.py (после всех функций)
-
-@api_bp.route('/templates', methods=['GET'])
-@login_required
-def get_templates():
-    """Получить шаблоны пользователя (заглушка)"""
-    return jsonify({'templates': [], 'status': 'success'})
 
 @api_bp.route('/templates/<int:template_id>', methods=['DELETE'])
 @login_required
