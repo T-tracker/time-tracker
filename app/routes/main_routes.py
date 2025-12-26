@@ -169,10 +169,11 @@ def categories_page():
 # ==================== API ДЛЯ ФРОНТЕНДА ====================
 
 # --- Категории ---
-@main_bp.route('/api/categories', methods=['GET'])
+@main_bp.route('/api/v1/categories', methods=['GET'])
+@main_bp.route('/api/categories', methods=['GET'])  # Поддержка двух версий
 @login_required
 def get_categories_api():
-    """Получить все категории текущего пользователя (JSON API)"""
+    """Получить все категории текущего пользователя"""
     categories = Category.query.filter_by(user_id=current_user.id).all()
     return jsonify([{
         'id': cat.id,
@@ -182,10 +183,11 @@ def get_categories_api():
     } for cat in categories])
 
 
-@main_bp.route('/api/categories', methods=['POST'])
+@main_bp.route('/api/v1/categories', methods=['POST'])
+@main_bp.route('/api/categories', methods=['POST'])  # Поддержка двух версий
 @login_required
 def create_category_api():
-    """Создать новую категорию (JSON API)"""
+    """Создать новую категорию"""
     try:
         data = request.get_json()
         if not data or 'name' not in data:
@@ -295,10 +297,11 @@ def get_events_api():
     } for e in events])
 
 
-@main_bp.route('/api/events', methods=['POST'])
+@main_bp.route('/api/v1/events', methods=['POST'])
+@main_bp.route('/api/events', methods=['POST'])  # Поддержка двух версий
 @login_required
 def create_event_api():
-    """Создать или обновить событие (для ячеек расписания)"""
+    """Создать или обновить событие"""
     try:
         data = request.get_json()
         
@@ -317,7 +320,7 @@ def create_event_api():
         if not category:
             return jsonify({'error': 'Категория не найдена'}), 404
         
-        # Парсим время (учитываем формат с Z)
+        # Парсим время
         start_str = data['start_time'].replace('Z', '+00:00')
         end_str = data['end_time'].replace('Z', '+00:00')
         
@@ -331,7 +334,7 @@ def create_event_api():
         if end_time <= start_time:
             return jsonify({'error': 'Время окончания должно быть позже времени начала'}), 400
         
-        # Ищем существующее событие для этой ячейки
+        # Ищем существующее событие
         existing_event = Event.query.filter_by(
             user_id=current_user.id,
             category_id=data['category_id'],
@@ -352,8 +355,7 @@ def create_event_api():
                 start_time=start_time,
                 end_time=end_time,
                 type=data['type'],
-                source='web',
-                description=data.get('description', '')
+                source='web'
             )
             db.session.add(new_event)
             message = 'Событие создано'
@@ -391,36 +393,39 @@ def delete_event_api(event_id):
 
 
 # --- События по неделям ---
-@main_bp.route('/api/events/week/<week_id>', methods=['GET'])
-@main_bp.route('/api/events/week', methods=['GET'])
+@main_bp.route('/api/v1/events/week/<week_id>', methods=['GET'])
+@main_bp.route('/api/events/week/<week_id>', methods=['GET'])  # Поддержка двух версий
 @login_required
-def get_week_events_api(week_id=None):
-    """Получить события за неделю"""
+def get_week_events_api(week_id):
+    """Получить события за неделю - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
     try:
         # Определяем неделю
-        if week_id:
-            # Формат: "2025-W52"
-            year_str, week_str = week_id.split('-W')
-            year = int(year_str)
-            week = int(week_str)
-        else:
-            # Из параметров или текущая неделя
-            year = request.args.get('year', type=int)
-            week = request.args.get('week', type=int)
-            
-            if not year or not week:
-                today = datetime.now().date()
-                year, week, _ = today.isocalendar()
+        year_str, week_str = week_id.split('-W')
+        year = int(year_str)
+        week = int(week_str)
         
-        # Рассчитываем начало и конец недели (понедельник - воскресенье)
-        start_of_week = datetime.strptime(f'{year}-{week:02d}-1', "%Y-%W-%w")
-        end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        # ПРАВИЛЬНЫЙ расчет начала недели (ISO неделя)
+        import datetime
+        first_day = datetime.date(year, 1, 1)
+        # Находим первый четверг года
+        if first_day.weekday() > 3:  # Если первый день года после четверга
+            first_thursday = first_day + datetime.timedelta(days=(3 - first_day.weekday() + 7) % 7)
+        else:
+            first_thursday = first_day + datetime.timedelta(days=(3 - first_day.weekday()))
+        
+        # Начало недели (понедельник)
+        start_of_week = first_thursday + datetime.timedelta(days=(week - 1) * 7 - 3)
+        end_of_week = start_of_week + datetime.timedelta(days=6, hours=23, minutes=59, seconds=59)
+        
+        # Преобразуем в datetime
+        start_dt = datetime.datetime.combine(start_of_week, datetime.time.min)
+        end_dt = datetime.datetime.combine(end_of_week, datetime.time.max)
         
         # Получаем события за неделю
         events = Event.query.filter(
             Event.user_id == current_user.id,
-            Event.start_time >= start_of_week,
-            Event.start_time <= end_of_week
+            Event.start_time >= start_dt,
+            Event.start_time <= end_dt
         ).order_by(Event.start_time).all()
         
         # Форматируем ответ
@@ -431,10 +436,10 @@ def get_week_events_api(week_id=None):
                 'category_id': event.category_id,
                 'category_name': event.category.name if event.category else '',
                 'category_color': event.category.color if event.category else '#4361ee',
-                'start_time': event.start_time.isoformat() + 'Z',
-                'end_time': event.end_time.isoformat() + 'Z',
+                'start_time': event.start_time.isoformat() + 'Z' if event.start_time else None,
+                'end_time': event.end_time.isoformat() + 'Z' if event.end_time else None,
                 'type': event.type,
-                'duration': int((event.end_time - event.start_time).total_seconds() / 60)
+                'duration': int((event.end_time - event.start_time).total_seconds() / 60) if event.end_time and event.start_time else 0
             })
         
         return jsonify({
@@ -451,6 +456,9 @@ def get_week_events_api(week_id=None):
     except ValueError as e:
         return jsonify({'error': f'Неверный формат недели: {str(e)}'}), 400
     except Exception as e:
+        import traceback
+        print(f"ERROR in get_week_events_api: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({'error': f'Ошибка сервера: {str(e)}'}), 500
 
 
