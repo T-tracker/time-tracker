@@ -4,6 +4,7 @@ from app import db
 from app.models import User, Category, Event, Template
 from app.auth import telegram_auth_required
 from datetime import datetime, timedelta
+from flask_login import current_user
 import re
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
