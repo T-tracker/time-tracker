@@ -24,7 +24,7 @@ def run_bot():
             sys.path.insert(0, bot_path)
         
         # Импортируем и запускаем бота
-        from bot.bot import main as bot_main
+        from bot.telegram_bot import main as bot_main
         
         logger.info("✅ Модуль бота загружен успешно")
         
