@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 .Python
 env/
+.env
 *.sqlite3
 instance/
 .DS_Store
