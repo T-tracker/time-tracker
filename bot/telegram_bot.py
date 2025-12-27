@@ -2,7 +2,15 @@ import logging
 import asyncio
 from datetime import datetime, timedelta
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler, 
+    MessageHandler,
+    filters,
+    ContextTypes,
+    CallbackContext
+)
 from collections import defaultdict
 
 from bot.config import BOT_TOKEN
