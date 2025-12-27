@@ -1006,6 +1006,7 @@ document.addEventListener('DOMContentLoaded', function() {
             await loadCategories();
             await loadEvents();
             initEventHandlers();
+            initCategoryHandlers()
             updateWeekRange();
             setCurrentWeek();
             console.log('Инициализация завершена');
@@ -1324,6 +1325,147 @@ document.addEventListener('DOMContentLoaded', function() {
         loadEvents();
     }
 
+
+        // ==================== КАТЕГОРИИ ====================
+
+    function initCategoryHandlers() {
+        console.log('Инициализация обработчиков категорий...');
+        
+        // Кнопка добавления категории в правой панели
+        const addCategoryBtn = document.getElementById('addCategoryBtn');
+        if (addCategoryBtn) {
+            addCategoryBtn.addEventListener('click', openCategoryModal);
+            console.log('Кнопка добавления категории инициализирована');
+        }
+        
+        // Форма создания категории
+        const categoryForm = document.getElementById('categoryForm');
+        if (categoryForm) {
+            categoryForm.addEventListener('submit', handleCategoryForm);
+            console.log('Форма категории инициализирована');
+        }
+        
+        // Инициализируем цветовую палитру
+        initColorPicker();
+    }
+    
+    function initColorPicker() {
+        const colorPicker = document.getElementById('colorPicker');
+        if (!colorPicker) return;
+        
+        const colors = [
+            '#f8b5d1', '#cdb4db', '#a7d2cb', '#ffd6e7', '#ffafcc',
+            '#bde0fe', '#a2d2ff', '#8ecae6', '#219ebc', '#023047',
+            '#ffafcc', '#ff9a9e', '#ffd166', '#06d6a0', '#118ab2'
+        ];
+        
+        colors.forEach(color => {
+            const colorDiv = document.createElement('div');
+            colorDiv.className = 'color-option';
+            colorDiv.style.width = '30px';
+            colorDiv.style.height = '30px';
+            colorDiv.style.backgroundColor = color;
+            colorDiv.style.borderRadius = '50%';
+            colorDiv.style.cursor = 'pointer';
+            colorDiv.style.border = '2px solid transparent';
+            colorDiv.style.display = 'inline-block';
+            colorDiv.style.margin = '2px';
+            
+            colorDiv.addEventListener('click', function() {
+                // Убираем выделение у всех цветов
+                document.querySelectorAll('.color-option').forEach(el => {
+                    el.style.border = '2px solid transparent';
+                });
+                
+                // Выделяем выбранный цвет
+                this.style.border = '2px solid var(--primary-color)';
+                document.getElementById('selectedColor').value = color;
+            });
+            
+            colorPicker.appendChild(colorDiv);
+        });
+        
+        // Выбираем первый цвет по умолчанию
+        if (colorPicker.firstChild) {
+            colorPicker.firstChild.click();
+        }
+    }
+    
+    function openCategoryModal() {
+        console.log('Открытие модального окна категории');
+        
+        // Сбрасываем форму
+        const form = document.getElementById('categoryForm');
+        if (form) form.reset();
+        
+        // Выбираем первый цвет по умолчанию
+        const colorPicker = document.getElementById('colorPicker');
+        if (colorPicker && colorPicker.firstChild) {
+            colorPicker.firstChild.click();
+        }
+        
+        // Показываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+        modal.show();
+    }
+    
+    async function handleCategoryForm(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('categoryName').value.trim();
+        const color = document.getElementById('selectedColor').value;
+        
+        if (!name) {
+            alert('Введите название категории');
+            return;
+        }
+        
+        console.log('Создание категории:', { name, color });
+        
+        try {
+            const response = await fetch('/api/v1/categories', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    name: name, 
+                    color: color 
+                })
+            });
+            
+            const result = await response.json();
+            console.log('Ответ сервера:', result);
+            
+            if (result.success) {
+                // Добавляем новую категорию в состояние
+                state.categories.push(result.category);
+                
+                // Обновляем селекторы категорий
+                updateCategorySelect();
+                
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('categoryModal'));
+                if (modal) modal.hide();
+                
+                // Очищаем форму
+                e.target.reset();
+                
+                // Показываем уведомление
+                alert(`Категория "${name}" создана!`);
+                
+                // Перезагружаем события
+                await loadEvents();
+            } else {
+                alert('Ошибка: ' + (result.error || 'Неизвестная ошибка'));
+            }
+        } catch (error) {
+            console.error('Ошибка создания категории:', error);
+            alert('Ошибка сети при создании категории');
+        }
+    }
+    
+
     // ==================== ОБРАБОТЧИКИ СОБЫТИЙ ====================
 
     function initEventHandlers() {
@@ -1361,6 +1503,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (addEventForm) {
             addEventForm.addEventListener('submit', handleAddEventForm);
         }
+        
+        // Инициализация обработчиков категорий
+        initCategoryHandlers();
         
         console.log('Обработчики инициализированы');
     }
