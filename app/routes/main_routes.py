@@ -178,7 +178,8 @@ def get_categories_api():
     return jsonify([{
         'id': cat.id,
         'name': cat.name,
-        'color': cat.color
+        'color': cat.color,
+        'is_default': cat.is_default
     } for cat in categories])
 
 
