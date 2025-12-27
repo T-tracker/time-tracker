@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Вход - Time Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card fade-in">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <h2 class="fw-bold">Вход в систему</h2>
+                    <p class="text-muted">Войдите в свой личный кабинет</p>
+                </div>
+                
+                <form method="POST" action="{{ url_for('auth.login') }}">
+                    <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+                    
+                    <div class="mb-3">
+                        <label for="identifier" class="form-label">
+                            <i class="bi bi-person me-1"></i>Логин или Telegram ID
+                        </label>
+                        <input type="text" class="form-control" id="identifier" name="identifier" 
+                               placeholder="Введите имя пользователя или Telegram ID" required autofocus>
+                        <div class="form-text">
+                            Можно использовать имя пользователя или Telegram ID
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            <i class="bi bi-key me-1"></i>Пароль
+                        </label>
+                        <input type="password" class="form-control" id="password" name="password" 
+                               placeholder="Введите пароль" required>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                        <label class="form-check-label" for="remember">Запомнить меня</label>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Войти
+                        </button>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <p class="mb-2">Еще нет аккаунта?</p>
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-person-plus me-1"></i>Зарегистрироваться
+                        </a>
+                    </div>
+                </form>
+                
+                <hr class="my-4">
+                
+                <div class="text-center">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Для доступа через Telegram-бота используйте свой Telegram ID
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-body text-center">
+                <h6 class="mb-2">Демо доступ (для тестирования):</h6>
+                <div class="row">
+                    <div class="col-6">
+                        <small class="text-muted d-block">Логин:</small>
+                        <code>admin</code>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">Пароль:</small>
+                        <code>admin123</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
