@@ -1223,19 +1223,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Загрузить шаблоны
         async loadTemplates() {
             try {
-                const response = await fetch('/api/templates');
-                if (response.ok) {
-                    const data = await response.json();
-                    state.templates = data.templates || data;
-                } else {
-                    this.loadFromLocalStorage();
+                const saved = localStorage.getItem('scheduleTemplates');
+                if (saved) {
+                    state.templates = JSON.parse(saved);
                 }
             } catch (error) {
                 console.error('Ошибка загрузки шаблонов:', error);
-                this.loadFromLocalStorage();
+                state.templates = [];
             }
-            
-            this.updateTemplatesList();
         },
         
         // Сохранить в localStorage
@@ -1276,16 +1271,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 noTemplatesMsg.style.display = 'none';
             }
             
-            // Сортируем шаблоны по дате создания (новые сверху)
-            const sortedTemplates = [...state.templates].sort((a, b) => 
-                new Date(b.createdAt) - new Date(a.createdAt)
-            );
-            
-            sortedTemplates.forEach(template => {
-                // Подсчитываем количество событий каждого типа
-                const planEvents = template.events.filter(e => e.type === 'plan').length;
-                const factEvents = template.events.filter(e => e.type === 'fact').length;
-                
+            state.templates.forEach(template => {
                 const templateItem = document.createElement('div');
                 templateItem.className = 'list-group-item list-group-item-action';
                 templateItem.innerHTML = `
@@ -1296,8 +1282,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <small class="text-muted">
                                 Создан: ${new Date(template.createdAt).toLocaleDateString('ru-RU')} • 
                                 Событий: ${template.events?.length || 0}
-                                ${planEvents > 0 ? `• <span class="badge bg-success">План: ${planEvents}</span>` : ''}
-                                ${factEvents > 0 ? `<span class="badge bg-primary ms-1">Факт: ${factEvents}</span>` : ''}
                             </small>
                         </div>
                         <div class="btn-group btn-group-sm ms-3">
@@ -1314,18 +1298,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 list.appendChild(templateItem);
             });
             
-            // Добавляем обработчики событий
+            // Обработчики для кнопок шаблонов
             document.querySelectorAll('.apply-template-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const templateId = btn.dataset.id;
-                    
-                    // Спрашиваем, заменить ли существующие события
-                    if (confirm(`Применить шаблон? Существующие события "План" будут заменены.`)) {
-                        this.applyTemplate(templateId, { replace: true });
-                    } else {
-                        this.applyTemplate(templateId, { replace: false });
-                    }
+                    alert('Применение шаблонов пока не реализовано');
                 });
             });
             
@@ -1333,10 +1311,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const templateId = btn.dataset.id;
-                    this.deleteTemplate(templateId);
+                    if (confirm('Удалить этот шаблон?')) {
+                        state.templates = state.templates.filter(t => t.id != templateId);
+                        this.saveToLocalStorage();
+                        this.updateTemplatesList();
+                        alert('Шаблон удален');
+                    }
                 });
             });
-        },
+        }
         
         // Редактировать шаблон
         editTemplate(templateId) {
@@ -1460,6 +1443,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initEventHandlers();
         initCurrentTimeIndicator();
         updateWeekRange();
+        setCurrentWeek(); // Устанавливаем текущую неделю при загрузке
 
         console.log('Инициализация завершена');
         console.log('Загружено событий:', state.events.length);
@@ -1526,10 +1510,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function handleCellClick(event) {
+        console.log('Клик по таблице:', event.target);
         // Проверяем, кликнули ли на самом событии
         const eventElement = event.target.closest('.plan-event, .fact-event');
         
         if (eventElement) {
+            console.log('Найдено событие с ID:', eventElement.dataset.eventId);
             // Кликнули на событии - редактируем
             editEvent(eventElement.dataset.eventId);
             return;
@@ -1537,7 +1523,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Проверяем, кликнули ли на ячейке (плане или факте)
         const cell = event.target.closest('.plan-column, .fact-column');
-        if (!cell) return;
+        if (!cell) {
+            console.log('Не ячейка');
+            return;
+        }
+
+        console.log('Клик по ячейке:', cell.dataset);
         
         // Иначе создаем новое событие в этой ячейке
         const day = parseInt(cell.dataset.day);
@@ -1650,16 +1641,17 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.classList.remove('btn-primary');
         submitBtn.classList.add('btn-warning');
         
-        // Добавляем кнопку удаления, если её нет
-        let deleteBtn = document.getElementById('deleteEventBtn');
-        if (!deleteBtn) {
-            deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
-            deleteBtn.className = 'btn btn-danger';
-            deleteBtn.id = 'deleteEventBtn';
-            deleteBtn.innerHTML = '<i class="bi bi-trash me-2"></i>Удалить';
-            document.querySelector('#addEventForm .modal-footer').prepend(deleteBtn);
-        }
+        // Удаляем старую кнопку удаления если есть
+        const oldDeleteBtn = document.getElementById('deleteEventBtn');
+        if (oldDeleteBtn) oldDeleteBtn.remove();
+        
+        // Добавляем кнопку удаления
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-danger';
+        deleteBtn.id = 'deleteEventBtn';
+        deleteBtn.innerHTML = '<i class="bi bi-trash me-2"></i>Удалить';
+        deleteBtn.style.marginRight = 'auto';
         
         // Обработчик удаления
         deleteBtn.onclick = () => {
@@ -1668,6 +1660,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 modal.hide();
             }
         };
+
+        document.querySelector('#addEventForm .modal-footer').prepend(deleteBtn);
         
         // Обработчик формы для обновления
         const form = document.getElementById('addEventForm');
@@ -1691,6 +1685,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Восстанавливаем оригинальную форму
             form.reset();
             form.onsubmit = originalSubmit;
+            modalElement.dataset.editingEventId = '';
+            document.querySelector('#addEventModal .modal-title').textContent = 'Добавить событие';
+            submitBtn.textContent = 'Добавить событие';
+            submitBtn.classList.remove('btn-warning');
+            submitBtn.classList.add('btn-primary');
         };
     }
     
@@ -1733,16 +1732,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function deleteEventById(eventId) {
-        if (!confirm('Удалить это событие?')) return;
-        
         try {
             const response = await fetch(`/api/events/${eventId}`, {
                 method: 'DELETE'
             });
             
-            const result = await response.json();
-            
-            if (result.success) {
+            if (response.ok) {
                 // Удаляем событие из состояния
                 state.events = state.events.filter(e => e.id != eventId);
                 
@@ -1750,15 +1745,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateBalanceWheel();
                 saveEventsToLocalStorage();
                 
-                // Закрываем модальное окно
-                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
-                
                 alert('Событие удалено!');
+                return true;
             }
         } catch (error) {
             console.error('Ошибка удаления события:', error);
-            alert('Не удалось удалить событие');
         }
+        
+        // Fallback: удаляем локально
+        state.events = state.events.filter(e => e.id != eventId);
+        renderEvents();
+        updateBalanceWheel();
+        saveEventsToLocalStorage();
+        alert('Событие удалено (локально)!');
+        return true;
     }
 
     async function bulkFill(type) {
@@ -1965,22 +1965,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function updateCategorySelects() {
         // Основной селект категорий
-        elements.categorySelect.innerHTML = '<option value="">Выберите категорию</option>';
-        elements.bulkCategorySelect.innerHTML = '<option value="">Выберите категорию</option>';
-        elements.quickCategory.innerHTML = '<option value="">Выберите категорию</option>';
+        const selects = [
+            elements.categorySelect,
+            elements.bulkCategorySelect,
+            elements.quickCategory
+        ];
         
-        state.categories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = category.id;
-            option.textContent = category.name;
-            option.style.color = category.color;
-            elements.categorySelect.appendChild(option.cloneNode(true));
-            elements.bulkCategorySelect.appendChild(option.cloneNode(true));
-            elements.quickCategory.appendChild(option);
+        selects.forEach(select => {
+            if (select) {
+                select.innerHTML = '<option value="">Выберите категорию</option>';
+                state.categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    option.style.color = category.color;
+                    select.appendChild(option);
+                });
+            }
         });
     }
     
     function updateCategoriesList() {
+        if (!elements.categoriesList) return;
+        
         elements.categoriesList.innerHTML = '';
         
         state.categories.forEach(category => {
@@ -2058,22 +2065,29 @@ document.addEventListener('DOMContentLoaded', function() {
         const startTimeSelect = document.getElementById('startTime');
         const endTimeSelect = document.getElementById('endTime');
         
-        startTimeSelect.innerHTML = '';
-        endTimeSelect.innerHTML = '';
+        if (startTimeSelect) {
+            startTimeSelect.innerHTML = '';
+            for (let hour = 0; hour < 24; hour++) {
+                for (let minute = 0; minute < 60; minute += config.slotMinutes) {
+                    const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    startTimeSelect.appendChild(option);
+                }
+            }
+        }
         
-        for (let hour = 0; hour < 24; hour++) {
-            for (let minute = 0; minute < 60; minute += config.slotMinutes) {
-                const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                
-                const option1 = document.createElement('option');
-                option1.value = time;
-                option1.textContent = time;
-                startTimeSelect.appendChild(option1);
-                
-                const option2 = document.createElement('option');
-                option2.value = time;
-                option2.textContent = time;
-                endTimeSelect.appendChild(option2);
+        if (endTimeSelect) {
+            endTimeSelect.innerHTML = '';
+            for (let hour = 0; hour < 24; hour++) {
+                for (let minute = 0; minute < 60; minute += config.slotMinutes) {
+                    const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    endTimeSelect.appendChild(option);
+                }
             }
         }
     }
@@ -2103,8 +2117,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (dates.start && dates.end) {
             const startStr = formatDate(dates.start);
             const endStr = formatDate(dates.end);
-            elements.weekRange.textContent = `${year} - Неделя ${week} (${startStr} - ${endStr})`;
-            
+            if (elements.weekRange) {
+                elements.weekRange.textContent = `${year} - Неделя ${week} (${startStr} - ${endStr})`;
+            }
             // Обновляем даты в заголовках дней
             updateDayHeaders(dates.start);
         }
@@ -2280,7 +2295,9 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.textBaseline = 'middle';
             ctx.fillText('Нет данных', centerX, centerY);
             
-            elements.wheelLegend.innerHTML = '<div class="text-muted">Нет данных для отображения</div>';
+            if (elements.wheelLegend) {
+                elements.wheelLegend.innerHTML = '<div class="text-muted">Нет данных для отображения</div>';
+            }
             return;
         }
         
@@ -2318,6 +2335,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateWheelLegend(data) {
+        if (!elements.wheelLegend) return;
+        
         elements.wheelLegend.innerHTML = '';
         
         data.forEach(item => {
@@ -2342,36 +2361,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
                 if (data.success) {
                     state.events = data.events;
-                    renderEvents();
-                    updateBalanceWheel();
-                } else {
-                    console.error('Ошибка загрузки событий:', data.error);
-                }
-            } else {
-                console.error('Ошибка сети при загрузке событий');
-                // Загружаем из localStorage как fallback
-                const weekKey = elements.weekPicker.value;
-                const savedEvents = localStorage.getItem(`events_${weekKey}`);
-                if (savedEvents) {
-                    state.events = JSON.parse(savedEvents);
-                    renderEvents();
                 }
             }
         } catch (error) {
             console.error('Ошибка загрузки событий:', error);
-            // Загружаем из localStorage как fallback
-            const weekKey = elements.weekPicker.value;
-            const savedEvents = localStorage.getItem(`events_${weekKey}`);
-            if (savedEvents) {
-                state.events = JSON.parse(savedEvents);
-                renderEvents();
-            }
         }
+        
+        renderEvents();
+        updateBalanceWheel();
     }
 
     async function saveEvent(eventData) {
         try {
-            // Округляем время
             const startTime = roundToNearest15Minutes(
                 new Date(eventData.start_time), 
                 'floor'
@@ -2381,34 +2382,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 'ceil'
             );
             
-            // Обновляем время в данных события
             eventData.start_time = formatTimeForAPI(startTime);
             eventData.end_time = formatTimeForAPI(endTime);
             
-            // Генерируем ID для локального хранения
             const newEvent = {
                 id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
                 ...eventData,
                 createdAt: new Date().toISOString()
             };
             
-            // Добавляем событие в состояние
             state.events.push(newEvent);
             
-            // Обновляем интерфейс
             renderEvents();
             updateBalanceWheel();
-            
-            // Сохраняем в localStorage
             saveEventsToLocalStorage();
-            
-            alert('Событие успешно добавлено!');
             
             return { success: true, event: newEvent };
             
         } catch (error) {
             console.error('Ошибка сохранения события:', error);
-            alert('Не удалось сохранить событие');
             return { success: false, error: error.message };
         }
     }
@@ -2491,29 +2483,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function openAddEventForm(type = 'plan', presetData = null) {
-        // Сбрасываем форму
-        document.getElementById('addEventForm').reset();
+        const form = document.getElementById('addEventForm');
+        form.reset();
         
-        // Устанавливаем тип события
         document.querySelector(`input[name="eventType"][value="${type}"]`).checked = true;
         
         if (presetData) {
-            // Если переданы предустановленные данные
             document.getElementById('startDate').value = presetData.date || new Date().toISOString().split('T')[0];
             document.getElementById('startTime').value = presetData.start;
             document.getElementById('endDate').value = presetData.date || new Date().toISOString().split('T')[0];
             document.getElementById('endTime').value = presetData.end;
         } else {
-            // Устанавливаем текущую дату
             const today = new Date();
             const todayStr = today.toISOString().split('T')[0];
             
             document.getElementById('startDate').value = todayStr;
             document.getElementById('endDate').value = todayStr;
             
-            // Устанавливаем текущее время, округленное до 15 минут
             const startTime = roundToNearest15Minutes(today, 'floor');
-            const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 час
+            const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
             
             const startTimeStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
             const endTimeStr = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
@@ -2522,12 +2510,58 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('endTime').value = endTimeStr;
         }
         
-        // Фокусируемся на выборе категории
-        setTimeout(() => {
-            document.getElementById('categorySelect').focus();
-        }, 100);
+        // Убираем старую кнопку удаления если есть
+        const deleteBtn = document.getElementById('deleteEventBtn');
+        if (deleteBtn) deleteBtn.remove();
         
-        // Показываем модальное окно
+        // Восстанавливаем оригинальную форму
+        const modalElement = document.getElementById('addEventModal');
+        if (modalElement.dataset.editingEventId) {
+            delete modalElement.dataset.editingEventId;
+        }
+        
+        document.querySelector('#addEventModal .modal-title').textContent = 'Добавить событие';
+        const submitBtn = document.querySelector('#addEventForm button[type="submit"]');
+        submitBtn.textContent = 'Добавить событие';
+        submitBtn.classList.remove('btn-warning');
+        submitBtn.classList.add('btn-primary');
+        
+        // Устанавливаем оригинальный обработчик
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const eventData = {
+                type: document.querySelector('input[name="eventType"]:checked').value,
+                category_id: parseInt(document.getElementById('categorySelect').value),
+                start_time: `${document.getElementById('startDate').value} ${document.getElementById('startTime').value}:00`,
+                end_time: `${document.getElementById('endDate').value} ${document.getElementById('endTime').value}:00`,
+                description: document.getElementById('eventDescription').value
+            };
+            
+            if (!eventData.category_id) {
+                alert('Выберите категорию');
+                return;
+            }
+            
+            const startDate = new Date(eventData.start_time.replace(' ', 'T'));
+            const endDate = new Date(eventData.end_time.replace(' ', 'T'));
+            
+            if (endDate <= startDate) {
+                alert('Время окончания должно быть позже времени начала');
+                return;
+            }
+            
+            const result = await saveEvent(eventData);
+            
+            if (result.success) {
+                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+                this.reset();
+                alert('Событие успешно добавлено!');
+            } else {
+                alert('Не удалось добавить событие: ' + result.error);
+            }
+        };
+        
         const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
         modal.show();
     }
@@ -2566,213 +2600,187 @@ document.addEventListener('DOMContentLoaded', function() {
     function initEventHandlers() {
         console.log('Инициализация обработчиков событий...');
         
-        // Обработчик для всей таблицы (делегирование событий)
-        elements.scheduleTable.addEventListener('click', handleCellClick);
+        // Обработчик для всей таблицы
+        if (elements.scheduleTable) {
+            elements.scheduleTable.addEventListener('click', handleCellClick);
+        }
         
-        // Обработчики клавиш для массового выбора
+        // Обработчики клавиш
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
         
         // Навигация по неделям
-        elements.currentWeekBtn.addEventListener('click', setCurrentWeek);
-        elements.prevWeekBtn.addEventListener('click', prevWeek);
-        elements.nextWeekBtn.addEventListener('click', nextWeek);
-        elements.weekPicker.addEventListener('change', updateWeek);
+        if (elements.currentWeekBtn) {
+            elements.currentWeekBtn.addEventListener('click', setCurrentWeek);
+        }
+        if (elements.prevWeekBtn) {
+            elements.prevWeekBtn.addEventListener('click', prevWeek);
+        }
+        if (elements.nextWeekBtn) {
+            elements.nextWeekBtn.addEventListener('click', nextWeek);
+        }
+        if (elements.weekPicker) {
+            elements.weekPicker.addEventListener('change', updateWeek);
+        }
         
         // Кнопки добавления событий
         if (elements.addPlanBtn) {
             elements.addPlanBtn.addEventListener('click', () => openAddEventForm('plan'));
         }
-        
         if (elements.addFactBtn) {
             elements.addFactBtn.addEventListener('click', () => openAddEventForm('fact'));
         }
         
-        // Шаблоны - СОХРАНЕНИЕ
-        elements.saveTemplateBtn.addEventListener('click', () => {
-            // Проверяем, есть ли события Плана в текущей неделе
-            const weekStart = getWeekStartDate();
-            const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekEnd.getDate() + 6);
-            
-            const planEvents = state.events.filter(event => {
-                const eventDate = new Date(event.start_time);
-                return eventDate >= weekStart && eventDate <= weekEnd && event.type === 'plan';
+        // Шаблоны
+        if (elements.saveTemplateBtn) {
+            elements.saveTemplateBtn.addEventListener('click', () => {
+                const modal = new bootstrap.Modal(document.getElementById('saveTemplateModal'));
+                modal.show();
             });
-            
-            if (planEvents.length === 0) {
-                alert('Нет событий в колонке "План" для сохранения шаблона');
-                return;
-            }
-            // Сбрасываем форму
-            document.getElementById('saveTemplateForm').reset();
-            document.getElementById('savePlan').checked = true;
-            document.getElementById('saveFact').checked = false;
-            
-            const modal = new bootstrap.Modal(document.getElementById('saveTemplateModal'));
-            modal.show();
-        });
+        }
         
-        // Форма сохранения шаблона
-        document.getElementById('saveTemplateForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const name = document.getElementById('templateName').value.trim();
-            const description = document.getElementById('templateDescription').value.trim();
-            const includePlan = document.getElementById('savePlan').checked;
-            const includeFact = document.getElementById('saveFact').checked;
-            
-            if (!name) {
-                alert('Введите название шаблона');
-                return;
-            }
-            
-            if (!includePlan && !includeFact) {
-                alert('Выберите хотя бы один тип событий для сохранения');
-                return;
-            }
-            
-            try {
-                const template = await templateManager.saveCurrentWeekAsTemplate(
-                    name, description, includePlan, includeFact
-                );
-                
-                if (template) {
-                    alert(`Шаблон "${name}" сохранен! Событий в шаблоне: ${template.events.length}`);
-                    templateManager.updateTemplatesList();
-                    
-                    // Закрываем модальное окно
-                    bootstrap.Modal.getInstance(document.getElementById('saveTemplateModal')).hide();
-                    
-                    // Сбрасываем форму
-                    e.target.reset();
-                }
-            } catch (error) {
-                alert(`Ошибка сохранения шаблона: ${error.message}`);
-            }
-        });
-        
-        // Шаблоны - ПРОСМОТР И УПРАВЛЕНИЕ
-        elements.templatesBtn.addEventListener('click', () => {
-            templateManager.updateTemplatesList();
-            const modal = new bootstrap.Modal(document.getElementById('templatesModal'));
-            modal.show();
-        });
-        
-        // Быстрое создание шаблона из текущего плана
-        document.getElementById('createTemplateBtn').addEventListener('click', async () => {
-            const nameInput = document.getElementById('newTemplateName');
-            const name = nameInput.value.trim();
-            
-            if (!name) {
-                alert('Введите название шаблона');
-                return;
-            }
-            
-            // Проверяем, есть ли события Плана
-            const weekStart = getWeekStartDate();
-            const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekEnd.getDate() + 6);
-            
-            const planEvents = state.events.filter(event => {
-                const eventDate = new Date(event.start_time);
-                return eventDate >= weekStart && eventDate <= weekEnd && event.type === 'plan';
+        if (elements.templatesBtn) {
+            elements.templatesBtn.addEventListener('click', () => {
+                templateManager.updateTemplatesList();
+                const modal = new bootstrap.Modal(document.getElementById('templatesModal'));
+                modal.show();
             });
-            
-            if (planEvents.length === 0) {
-                alert('Нет событий в колонке "План" для создания шаблона');
-                return;
-            }
-            
-            try {
-                const template = await templateManager.saveCurrentWeekAsTemplate(name, '', true, false);
-                
-                if (template) {
-                    alert(`Шаблон "${name}" создан из текущего плана недели! Событий: ${template.events.length}`);
-                    nameInput.value = '';
-                    templateManager.updateTemplatesList();
-                }
-            } catch (error) {
-                alert(`Ошибка создания шаблона: ${error.message}`);
-            }
-        });
+        }
         
         // Категории
-        elements.addCategoryBtn.addEventListener('click', showCategoryModal);
-        document.getElementById('categoryForm').addEventListener('submit', createCategory);
+        if (elements.addCategoryBtn) {
+            elements.addCategoryBtn.addEventListener('click', showCategoryModal);
+        }
+        
+        const categoryForm = document.getElementById('categoryForm');
+        if (categoryForm) {
+            categoryForm.addEventListener('submit', createCategory);
+        }
         
         // Массовое заполнение
-        elements.bulkPlanBtn.addEventListener('click', () => bulkFill('plan'));
-        elements.bulkFactBtn.addEventListener('click', () => bulkFill('fact'));
-        elements.bulkClearBtn.addEventListener('click', bulkClear);
-        elements.bulkCancelBtn.addEventListener('click', clearSelection);
+        if (elements.bulkPlanBtn) {
+            elements.bulkPlanBtn.addEventListener('click', () => bulkFill('plan'));
+        }
+        if (elements.bulkFactBtn) {
+            elements.bulkFactBtn.addEventListener('click', () => bulkFill('fact'));
+        }
+        if (elements.bulkClearBtn) {
+            elements.bulkClearBtn.addEventListener('click', bulkClear);
+        }
+        if (elements.bulkCancelBtn) {
+            elements.bulkCancelBtn.addEventListener('click', () => {
+                clearSelection();
+                hideBulkEditPanel();
+            });
+        }
         
         // Быстрые действия
-        elements.quickEventBtn.addEventListener('click', showQuickEventModal);
-        elements.statsBtn.addEventListener('click', showStatistics);
+        if (elements.quickEventBtn) {
+            elements.quickEventBtn.addEventListener('click', showQuickEventModal);
+        }
+        if (elements.statsBtn) {
+            elements.statsBtn.addEventListener('click', showStatistics);
+        }
         
         // Колесо баланса
-        elements.wheelPeriod.addEventListener('change', updateBalanceWheel);
+        if (elements.wheelPeriod) {
+            elements.wheelPeriod.addEventListener('change', updateBalanceWheel);
+        }
         
         // Быстрые кнопки для шаблонов
-        document.getElementById('saveTemplateQuickBtn').addEventListener('click', () => {
-            elements.saveTemplateBtn.click();
-        });
-    
-        document.getElementById('applyTemplateQuickBtn').addEventListener('click', () => {
-            elements.templatesBtn.click();
-        });
+        const saveTemplateQuickBtn = document.getElementById('saveTemplateQuickBtn');
+        if (saveTemplateQuickBtn) {
+            saveTemplateQuickBtn.addEventListener('click', () => {
+                if (elements.saveTemplateBtn) elements.saveTemplateBtn.click();
+            });
+        }
         
-        // Форма добавления события
-        document.getElementById('addEventForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const eventData = {
-                type: document.querySelector('input[name="eventType"]:checked').value,
-                category_id: parseInt(document.getElementById('categorySelect').value),
-                start_time: `${document.getElementById('startDate').value} ${document.getElementById('startTime').value}:00`,
-                end_time: `${document.getElementById('endDate').value} ${document.getElementById('endTime').value}:00`,
-                description: document.getElementById('eventDescription').value
-            };
-            
-            if (!eventData.category_id) {
-                alert('Выберите категорию');
-                return;
-            }
-            
-            // Проверяем, что дата начала не позже даты окончания
-            const startDate = new Date(eventData.start_time.replace(' ', 'T'));
-            const endDate = new Date(eventData.end_time.replace(' ', 'T'));
-            
-            if (endDate <= startDate) {
-                alert('Время окончания должно быть позже времени начала');
-                return;
-            }
-            
-            const result = await saveEvent(eventData);
-            
-            if (result.success) {
-                // Закрываем модальное окно
-                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
-                
-                // Сбрасываем форму
-                this.reset();
-                
-                alert('Событие успешно добавлено!');
-            }
-        });
+        const applyTemplateQuickBtn = document.getElementById('applyTemplateQuickBtn');
+        if (applyTemplateQuickBtn) {
+            applyTemplateQuickBtn.addEventListener('click', () => {
+                if (elements.templatesBtn) elements.templatesBtn.click();
+            });
+        }
         
         // Быстрые кнопки добавления событий
-        document.getElementById('quickBreakfastBtn').addEventListener('click', () => 
-            addQuickEvent('еда', 30, 'Завтрак'));
-        document.getElementById('quickWorkBtn').addEventListener('click', () => 
-            addQuickEvent('работа', 60, 'Работа'));
-        document.getElementById('quickSportBtn').addEventListener('click', () => 
-            addQuickEvent('спорт', 60, 'Тренировка'));
-        document.getElementById('quickStudyBtn').addEventListener('click', () => 
-            addQuickEvent('учеба', 90, 'Учёба'));
-        document.getElementById('quickRestBtn').addEventListener('click', () => 
-            addQuickEvent('отдых', 30, 'Отдых'));
+        const quickButtons = ['quickBreakfastBtn', 'quickWorkBtn', 'quickSportBtn', 'quickStudyBtn', 'quickRestBtn'];
+        quickButtons.forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.addEventListener('click', (e) => {
+                    const text = e.target.textContent || e.target.closest('button').textContent;
+                    const desc = text.replace(/\s+/g, ' ').trim();
+                    const duration = btnId.includes('Breakfast') ? 30 : 
+                                   btnId.includes('Work') ? 60 :
+                                   btnId.includes('Sport') ? 60 :
+                                   btnId.includes('Study') ? 90 : 30;
+                    addQuickEvent(desc, duration, desc);
+                });
+            }
+        });
+        
+        // Создание шаблона
+        const createTemplateBtn = document.getElementById('createTemplateBtn');
+        if (createTemplateBtn) {
+            createTemplateBtn.addEventListener('click', async () => {
+                const nameInput = document.getElementById('newTemplateName');
+                const name = nameInput.value.trim();
+                
+                if (!name) {
+                    alert('Введите название шаблона');
+                    return;
+                }
+                
+                try {
+                    const template = await templateManager.saveCurrentWeekAsTemplate(name, '', true, false);
+                    if (template) {
+                        alert(`Шаблон "${name}" создан из текущего плана недели! Событий: ${template.events.length}`);
+                        nameInput.value = '';
+                        templateManager.updateTemplatesList();
+                    }
+                } catch (error) {
+                    alert(`Ошибка создания шаблона: ${error.message}`);
+                }
+            });
+        }
+        
+        // Форма сохранения шаблона
+        const saveTemplateForm = document.getElementById('saveTemplateForm');
+        if (saveTemplateForm) {
+            saveTemplateForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const name = document.getElementById('templateName').value.trim();
+                const description = document.getElementById('templateDescription').value.trim();
+                const includePlan = document.getElementById('savePlan').checked;
+                const includeFact = document.getElementById('saveFact').checked;
+                
+                if (!name) {
+                    alert('Введите название шаблона');
+                    return;
+                }
+                
+                if (!includePlan && !includeFact) {
+                    alert('Выберите хотя бы один тип событий для сохранения');
+                    return;
+                }
+                
+                try {
+                    const template = await templateManager.saveCurrentWeekAsTemplate(
+                        name, description, includePlan, includeFact
+                    );
+                    
+                    if (template) {
+                        alert(`Шаблон "${name}" сохранен! Событий в шаблоне: ${template.events.length}`);
+                        templateManager.updateTemplatesList();
+                        bootstrap.Modal.getInstance(document.getElementById('saveTemplateModal')).hide();
+                        e.target.reset();
+                    }
+                } catch (error) {
+                    alert(`Ошибка сохранения шаблона: ${error.message}`);
+                }
+            });
+        }
     }
     
     // Добавьте эту функцию отдельно
@@ -2799,14 +2807,17 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         await saveEvent(eventData);
+        alert(`Событие "${category.name}" добавлено!`);
     }
     
     function setCurrentWeek() {
         const today = new Date();
         const year = today.getFullYear();
         const week = getWeekNumber(today);
-        elements.weekPicker.value = `${year}-W${week.toString().padStart(2, '0')}`;
-        updateWeek();
+        if (elements.weekPicker) {
+            elements.weekPicker.value = `${year}-W${week.toString().padStart(2, '0')}`;
+            updateWeek();
+        }
     }
     
     function getWeekNumber(date) {
@@ -2858,12 +2869,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function initColorPicker() {
         const colors = [
-            '#f8b5d1', '#ffafcc', '#cdb4db', '#e2d4f0', /* Розовые и лавандовые */
-            '#a7d2cb', '#a2d2ff', '#ffd6e7', '#ffe5ec', /* Мятный, голубой, светлые розовые */
-            '#ffc8dd', '#bde0fe', '#ffc6ff', '#bdb2ff'  /* Дополнительные пастельные */
+            '#f8b5d1', '#ffafcc', '#cdb4db', '#e2d4f0',
+            '#a7d2cb', '#a2d2ff', '#ffd6e7', '#ffe5ec',
+            '#ffc8dd', '#bde0fe', '#ffc6ff', '#bdb2ff'
         ];
         
         const container = document.getElementById('colorPicker');
+        if (!container) return;
+        
         container.innerHTML = '';
         
         colors.forEach(color => {
@@ -2881,20 +2894,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 document.getElementById('selectedColor').value = color;
                 
-                // Убираем выделение со всех кнопок
                 container.querySelectorAll('button').forEach(btn => {
                     btn.style.border = '2px solid #fff';
                 });
                 
-                // Добавляем выделение выбранной кнопке
-                this.style.border = '2px solid var(--primary-dark)';
+                this.style.border = '2px solid #333';
             });
             
             container.appendChild(colorBtn);
         });
         
-        // Устанавливаем первый цвет по умолчанию
         document.getElementById('selectedColor').value = colors[0];
+        if (container.firstChild) {
+            container.firstChild.style.border = '2px solid #333';
+        }
     }
     
     function createCategory(event) {
