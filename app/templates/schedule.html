@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block title %}Расписание - Time Tracker{% endblock %}
 
 {% block extra_css %}
@@ -100,6 +99,7 @@
         padding: 0;
         position: relative;
         cursor: pointer;
+        z-index: 1; /* Исправление слоя для кликабельности */
     }
     
     .fact-column {
@@ -109,6 +109,7 @@
         padding: 0;
         position: relative;
         cursor: pointer;
+        z-index: 1; /* Исправление слоя для кликабельности */
     }
     
     .plan-header {
@@ -138,8 +139,8 @@
     }
 
     .debug-event {
-    border: 2px solid red !important;
-    background-color: rgba(255, 0, 0, 0.1) !important;
+        border: 2px solid red !important;
+        background-color: rgba(255, 0, 0, 0.1) !important;
     }
     
     .debug-cell {
@@ -204,6 +205,7 @@
         height: 2px;
         background-color: #ffd166; /* Пастельно-желтый */
         z-index: 5;
+        pointer-events: none; /* ВАЖНО: Разрешает клики сквозь линию времени */
     }
     
     /* Панель массового заполнения */
@@ -397,8 +399,7 @@
     /* Индикатор времени */
     .current-time-indicator {
         position: absolute;
-   
-     left: 0;
+        left: 0;
         right: 0;
         height: 2px;
         background-color: #ff9a9e; /* Розово-красный */
@@ -415,6 +416,7 @@
         height: 8px;
         background-color: #ff9a9e; /* Розово-красный */
         border-radius: 50%;
+        pointer-events: none;
     }
     
     /* Баджи в заголовке таблицы */
@@ -427,6 +429,7 @@
         background: var(--gradient-secondary) !important;
         color: var(--text-color);
     }
+    
     /* Стили для кнопок добавления событий */
     .btn-group .btn-outline-success {
         border-color: #a7d2cb;
@@ -501,12 +504,11 @@
 
 {% block content %}
 <div class="fade-in">
-    <!-- Отладочная информация (можно удалить позже) -->
     <div style="display: none;">
         <p>Передано дней: {{ days|length }}</p>
         <p>Первый день: {{ days[0].name if days else 'Нет данных' }}</p>
     </div>
-    <!-- Панель управления -->
+
     <div class="schedule-controls">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
@@ -515,45 +517,40 @@
             </div>
             
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <!-- ДОБАВЬТЕ ЭТИ КНОПКИ -->
-                        <div class="btn-group" role="group">
-                            <button class="btn btn-outline-success" id="addPlanBtn">
-                                <i class="bi bi-plus-circle me-1"></i>Добавить план
-                            </button>
-                            <button class="btn btn-outline-primary" id="addFactBtn">
-                                <i class="bi bi-plus-circle me-1"></i>Добавить факт
-                            </button>
-                        </div>
-                        
-                        <!-- Улучшенный виджет выбора недели -->
-                        <div class="input-group" style="width: 300px;">
-                            <span class="input-group-text"><i class="bi bi-calendar-week"></i></span>
-                            <input type="week" class="form-control" id="weekPicker">
-                            <button class="btn btn-outline-secondary" type="button" id="prevWeekBtn">
-                                <i class="bi bi-chevron-left"></i>
-                            </button>
-                            <button class="btn btn-outline-secondary" type="button" id="nextWeekBtn">
-                                <i class="bi bi-chevron-right"></i>
-                            </button>
-                            <button class="btn btn-outline-primary" type="button" id="currentWeekBtn">
-                                Сегодня
-                            </button>
-                        </div>
-                        
-                        <!-- Кнопка сохранения как шаблона -->
-                        <button class="btn btn-outline-success" id="saveTemplateBtn">
-                            <i class="bi bi-save me-1"></i>Сохранить как шаблон
-                        </button>
-                        
-                        <!-- Кнопка шаблонов -->
-                        <button class="btn btn-primary" id="templatesBtn">
-                            <i class="bi bi-collection me-1"></i>Шаблоны
-                        </button>
-                    </div>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-success" id="addPlanBtn">
+                        <i class="bi bi-plus-circle me-1"></i>Добавить план
+                    </button>
+                    <button class="btn btn-outline-primary" id="addFactBtn">
+                        <i class="bi bi-plus-circle me-1"></i>Добавить факт
+                    </button>
                 </div>
+                
+                <div class="input-group" style="width: 300px;">
+                    <span class="input-group-text"><i class="bi bi-calendar-week"></i></span>
+                    <input type="week" class="form-control" id="weekPicker">
+                    <button class="btn btn-outline-secondary" type="button" id="prevWeekBtn">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" type="button" id="nextWeekBtn">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" type="button" id="currentWeekBtn">
+                        Сегодня
+                    </button>
+                </div>
+                
+                <button class="btn btn-outline-success" id="saveTemplateBtn">
+                    <i class="bi bi-save me-1"></i>Сохранить как шаблон
+                </button>
+                
+                <button class="btn btn-primary" id="templatesBtn">
+                    <i class="bi bi-collection me-1"></i>Шаблоны
+                </button>
             </div>
+        </div>
+    </div>
     
-    <!-- Панель массового заполнения -->
     <div class="bulk-edit-panel" id="bulkEditPanel">
         <div class="selected-count" id="selectedCount">0 ячеек выбрано</div>
         <select class="form-select form-select-sm" id="bulkCategorySelect" style="width: 180px;">
@@ -567,9 +564,7 @@
         <button class="btn btn-outline-danger btn-sm" id="bulkCancelBtn">Отмена</button>
     </div>
     
-    <!-- Основной контент -->
     <div class="main-content">
-        <!-- Левая часть: таблица расписания -->
         <div class="schedule-section">
             <div class="schedule-container">
                 <div class="schedule-header">
@@ -607,16 +602,13 @@
                             </tr>
                         </thead>
                         <tbody id="scheduleBody">
-                            <!-- Время будет заполнено JavaScript -->
-                        </tbody>
+                            </tbody>
                     </table>
                 </div>
             </div>
         </div>
         
-        <!-- Правая часть: категории и графики -->
         <div class="right-sidebar">
-            <!-- Панель категорий -->
             <div class="categories-panel">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">Категории</h5>
@@ -625,19 +617,15 @@
                     </button>
                 </div>
                 <div class="categories-list" id="categoriesList">
-                    <!-- Категории будут загружены через JavaScript -->
-                </div>
+                    </div>
             </div>
             
-            <!-- График продуктивности -->
             <div class="productivity-chart">
                 <h5>График продуктивности</h5>
                 <div class="chart-container" id="productivityChart">
-                    <!-- График будет создан JavaScript -->
-                </div>
+                    </div>
             </div>
             
-            <!-- Колесо баланса -->
             <div class="balance-wheel-container">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h5 class="mb-0">Колесо баланса</h5>
@@ -650,12 +638,9 @@
                     <canvas id="balanceWheel" width="250" height="250"></canvas>
                 </div>
                 <div class="wheel-legend" id="wheelLegend">
-           
-         <!-- Легенда будет создана JavaScript -->
-                </div>
+                    </div>
             </div>
             
-            <!-- Быстрые действия -->
             <div class="quick-actions">
                 <h5>Быстрые действия</h5>
                 <div class="actions-grid">
@@ -675,26 +660,32 @@
                         <i class="bi bi-graph-up action-icon"></i>
                         <span class="action-text">Статистика</span>
                     </div>
+                    <div class="action-btn" id="copyDayBtn">
+                        <i class="bi bi-files action-icon"></i>
+                        <span class="action-text">Копия дня</span>
+                    </div>
+                    <div class="action-btn" id="clearDayBtn">
+                        <i class="bi bi-trash action-icon"></i>
+                        <span class="action-text">Очистить день</span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Модальные окна -->
-<!-- В модальном окне добавления события -->
 <div class="btn-group w-100" role="group">
-    <input type="radio" class="btn-check" name="eventType" id="modalTypePlan" value="plan" checked>
+    <input type="radio" class="btn-check" name="eventType" id="typePlan" value="plan" checked>
     <label class="btn btn-outline-success" for="typePlan" style="--bs-btn-color: #2d6a4f; --bs-btn-border-color: #a7d2cb; --bs-btn-hover-bg: rgba(167, 210, 203, 0.1);">
         План
     </label>
     
-    <input type="radio" class="btn-check" name="eventType" id="modalTypeFact" value="fact">
+    <input type="radio" class="btn-check" name="eventType" id="typeFact" value="fact">
     <label class="btn btn-outline-primary" for="typeFact" style="--bs-btn-color: #6d5a8a; --bs-btn-border-color: #cdb4db; --bs-btn-hover-bg: rgba(205, 180, 219, 0.1);">
         Факт
     </label>
 </div>
-<!-- Модальное окно сохранения шаблона -->
+
 <div class="modal fade" id="saveTemplateModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -706,36 +697,26 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="templateName" class="form-label">Название шаблона</label>
-                        <input type="text" class="form-control" id="templateName" required 
-                               placeholder="Например: 'Рабочая неделя', 'Учебная неделя'">
+                        <input type="text" class="form-control" id="templateName" required placeholder="Например: 'Рабочая неделя', 'Учебная неделя'">
                     </div>
-                    
                     <div class="mb-3">
                         <label for="templateDescription" class="form-label">Описание (необязательно)</label>
-                        <textarea class="form-control" id="templateDescription" rows="2" 
-                                  placeholder="Описание шаблона..."></textarea>
+                        <textarea class="form-control" id="templateDescription" rows="2" placeholder="Описание шаблона..."></textarea>
                     </div>
-                    
                     <div class="mb-3">
                         <label class="form-label">Что сохранить:</label>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="savePlan" checked>
-                            <label class="form-check-label" for="savePlan">
-                                Запланированные события
-                            </label>
+                            <label class="form-check-label" for="savePlan">Запланированные события</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="saveFact" checked>
-                            <label class="form-check-label" for="saveFact">
-                                Фактические события
-                            </label>
+                            <label class="form-check-label" for="saveFact">Фактические события</label>
                         </div>
                     </div>
-                    
                     <div class="alert alert-info">
                         <small>
-                            <i class="bi bi-info-circle"></i> Шаблон сохранит все события текущей недели.
-                            Вы сможете применять его к другим неделям.
+                            <i class="bi bi-info-circle"></i> Шаблон сохранит все события текущей недели. Вы сможете применять его к другим неделям.
                         </small>
                     </div>
                 </div>
@@ -748,7 +729,6 @@
     </div>
 </div>
 
-<!-- Обновленное модальное окно шаблонов -->
 <div class="modal fade" id="templatesModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -757,13 +737,11 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <!-- Форма создания нового шаблона -->
                 <div class="card mb-4">
                     <div class="card-body">
                         <h6 class="card-title">Создать новый шаблон</h6>
                         <div class="input-group mb-2">
-                            <input type="text" class="form-control" id="newTemplateName" 
-                                   placeholder="Название нового шаблона">
+                            <input type="text" class="form-control" id="newTemplateName" placeholder="Название нового шаблона">
                             <button class="btn btn-primary" id="createTemplateBtn" type="button">
                                 <i class="bi bi-plus-circle me-1"></i>Создать
                             </button>
@@ -772,10 +750,8 @@
                     </div>
                 </div>
                 
-                <!-- Список шаблонов -->
                 <h6 class="mb-3">Мои шаблоны</h6>
                 <div class="list-group" id="templatesList">
-                    <!-- Шаблоны будут загружены через JavaScript -->
                     <div class="text-center py-4 text-muted" id="noTemplatesMessage">
                         <i class="bi bi-calendar-x display-6 mb-3"></i>
                         <p>Нет сохраненных шаблонов</p>
@@ -790,7 +766,6 @@
     </div>
 </div>
 
-<!-- Добавление события -->
 <div class="modal fade" id="addEventModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -811,7 +786,6 @@
                                 <label class="btn btn-outline-primary" for="typeFact">Факт</label>
                             </div>
                         </div>
-                        
                         <div class="col-md-6 mb-3">
                             <label for="categorySelect" class="form-label">Категория</label>
                             <select class="form-select" id="categorySelect" required>
@@ -844,8 +818,7 @@
                     
                     <div class="mb-3">
                         <label for="eventDescription" class="form-label">Описание (необязательно)</label>
-                        <textarea class="form-control" id="eventDescription" rows="2" placeholder="Дополнительные
- детали..."></textarea>
+                        <textarea class="form-control" id="eventDescription" rows="2" placeholder="Дополнительные детали..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -857,7 +830,6 @@
     </div>
 </div>
 
-<!-- Управление категориями -->
 <div class="modal fade" id="categoryModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -871,15 +843,12 @@
                         <label for="categoryName" class="form-label">Название категории</label>
                         <input type="text" class="form-control" id="categoryName" required placeholder="Например: Работа, Учёба, Спорт...">
                     </div>
-                    
                     <div class="mb-3">
                         <label for="categoryColor" class="form-label">Цвет категории</label>
                         <div class="d-flex flex-wrap gap-2" id="colorPicker">
-                            <!-- Цвета будут добавлены JavaScript -->
-                        </div>
+                            </div>
                         <input type="hidden" id="selectedColor" value="#4361ee" required>
                     </div>
-                    
                     <div class="mb-3">
                         <label for="categoryDescription" class="form-label">Описание (необязательно)</label>
                         <textarea class="form-control" id="categoryDescription" rows="2" placeholder="Описание категории..."></textarea>
@@ -894,7 +863,6 @@
     </div>
 </div>
 
-<!-- Новое событие -->
 <div class="modal fade" id="quickEventModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -908,7 +876,6 @@
                         <label for="quickCategory" class="form-label">Категория</label>
                         <select class="form-select" id="quickCategory" required></select>
                     </div>
-                    
                     <div class="mb-3">
                         <label for="quickType" class="form-label">Тип</label>
                         <select class="form-select" id="quickType">
@@ -916,7 +883,6 @@
                             <option value="fact">Факт</option>
                         </select>
                     </div>
-                    
                     <div class="mb-3">
                         <label for="quickDuration" class="form-label">Длительность</label>
                         <select class="form-select" id="quickDuration">
@@ -927,7 +893,6 @@
                             <option value="180">3 часа</option>
                         </select>
                     </div>
-                    
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="quickToday" checked>
                         <label class="form-check-label" for="quickToday">
@@ -943,6 +908,7 @@
         </div>
     </div>
 </div>
+
 <div class="quick-add-buttons mt-3">
     <div class="btn-group btn-group-sm">
         <button class="btn btn-outline-success" id="quickBreakfastBtn">
@@ -962,7 +928,7 @@
         </button>
     </div>
 </div>
-<!-- Подтверждение удаления -->
+
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -992,25 +958,21 @@ document.addEventListener('DOMContentLoaded', function() {
         slotMinutes: 15,
         slotHeight: 25
     };
-
-      function roundToNearest15Minutes(date, roundType = 'round') {
+    
+    function roundToNearest15Minutes(date, roundType = 'round') {
         const minutes = date.getMinutes();
         let roundedMinutes;
         
         // Округляем до ближайших 15 минут
         if (roundType === 'ceil') {
-            // Вверх (для окончания событий)
             roundedMinutes = Math.ceil(minutes / 15) * 15;
         } else if (roundType === 'floor') {
-            // Вниз (для начала событий)
             roundedMinutes = Math.floor(minutes / 15) * 15;
         } else {
-            // Ближайшее
             roundedMinutes = Math.round(minutes / 15) * 15;
         }
         
         const newDate = new Date(date);
-        
         if (roundedMinutes === 60) {
             newDate.setHours(newDate.getHours() + 1);
             newDate.setMinutes(0);
@@ -1029,10 +991,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function parseTimeFromAPI(timeString) {
-        // Преобразуем строку времени из API в Date
-        return new Date(timeString.replace(' ', 'T'));
-    }  
-
+        return new Date(timeString.replace(' ', 'T') + 'Z');
+    }
     
     // Состояние приложения
     const state = {
@@ -1051,31 +1011,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Объект для управления шаблонами
     const templateManager = {
-        // Сохранить текущую неделю как шаблон
         async saveCurrentWeekAsTemplate(name, description = '', includePlan = true, includeFact = false) {
             const weekStart = getWeekStartDate();
             const weekEnd = new Date(weekStart);
             weekEnd.setDate(weekEnd.getDate() + 6);
             
-            // Собираем события текущей недели
             const weekEvents = state.events.filter(event => {
                 const eventDate = new Date(event.start_time);
                 return eventDate >= weekStart && eventDate <= weekEnd;
             });
-            
-            // Фильтруем по типам
+
             const filteredEvents = weekEvents.filter(event => {
                 if (includePlan && event.type === 'plan') return true;
                 if (includeFact && event.type === 'fact') return true;
                 return false;
             });
-            
-            // Если нет событий для сохранения
+
             if (filteredEvents.length === 0) {
                 throw new Error('Нет событий для сохранения в шаблон');
             }
             
-            // Создаем структуру шаблона
             const template = {
                 id: Date.now(),
                 name: name,
@@ -1083,21 +1038,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 createdAt: new Date().toISOString(),
                 events: filteredEvents.map(event => {
                     const eventDate = new Date(event.start_time);
-                    const dayOfWeek = eventDate.getDay(); // 0-воскресенье, 1-понедельник...
-                    
-                    // Конвертируем в наш формат дней (0-понедельник)
+                    const dayOfWeek = eventDate.getDay();
                     let templateDay = dayOfWeek;
-                    if (templateDay === 0) templateDay = 6; // Воскресенье
-
-                    else templateDay -= 1; // Понедельник=0, Вторник=1 и т.д.
+                    if (templateDay === 0) templateDay = 6;
+                    else templateDay -= 1;
                     
                     const startTime = event.start_time.split('T')[1].substring(0, 5);
                     const duration = Math.round((new Date(event.end_time) - new Date(event.start_time)) / (1000 * 60));
-                    
+
                     return {
                         type: event.type,
                         category_id: event.category_id,
-                        day_of_week: templateDay, // Используем наш формат (0-понедельник)
+                        day_of_week: templateDay,
                         start_time: startTime,
                         duration_minutes: duration,
                         description: event.description || ''
@@ -1108,34 +1060,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     includeFact: includeFact
                 }
             };
-            
+
             try {
-                // Сохраняем на сервер
                 const response = await fetch('/api/templates', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(template)
                 });
-                
+
                 if (response.ok) {
                     const result = await response.json();
-                    template.id = result.id || template.id; // Используем ID с сервера
+                    template.id = result.id || template.id;
                     state.templates.push(template);
                     this.saveToLocalStorage();
                     return template;
                 }
             } catch (error) {
                 console.error('Ошибка сохранения шаблона:', error);
-                // Сохраняем локально как fallback
                 state.templates.push(template);
                 this.saveToLocalStorage();
                 return template;
             }
         },
         
-        // Применить шаблон к текущей неделе
         applyTemplate(templateId, options = {}) {
             const template = state.templates.find(t => t.id == templateId);
             if (!template) {
@@ -1150,57 +1097,43 @@ document.addEventListener('DOMContentLoaded', function() {
             const weekStart = getWeekStartDate();
             const newEvents = [];
             
-            // Удаляем существующие события, если выбрана опция замены
             if (options.replace) {
                 state.events = state.events.filter(event => event.type !== 'plan');
             }
             
-            // Создаем новые события из шаблона
             template.events.forEach(templateEvent => {
-                // Пропускаем события Факта, если шаблон создан только для Плана
                 if (templateEvent.type !== 'plan') return;
                 
                 const eventDate = new Date(weekStart);
-                
-                // Используем day_of_week в нашем формате (0-понедельник)
                 const dayOffset = templateEvent.day_of_week;
                 eventDate.setDate(weekStart.getDate() + dayOffset);
                 
-                // Парсим время начала
                 const [hours, minutes] = templateEvent.start_time.split(':').map(Number);
                 const startTime = new Date(eventDate);
                 startTime.setHours(hours, minutes, 0, 0);
                 
-                // Вычисляем время окончания
                 const endTime = new Date(startTime);
                 endTime.setMinutes(endTime.getMinutes() + templateEvent.duration_minutes);
                 
-                // Создаем новое событие
                 const newEvent = {
                     id: `template_${templateId}_${Date.now()}_${Math.random()}`,
-                    type: 'plan', // Всегда применяем как План
+                    type: 'plan',
                     category_id: templateEvent.category_id,
                     start_time: startTime.toISOString(),
                     end_time: endTime.toISOString(),
                     description: templateEvent.description || `Из шаблона: ${template.name}`,
                     from_template: templateId
                 };
-                
                 newEvents.push(newEvent);
             });
             
-            // Добавляем новые события
             state.events.push(...newEvents);
-            
-            // Обновляем отображение
             renderEvents();
             updateBalanceWheel();
             saveEventsToLocalStorage();
-            
             alert(`Шаблон "${template.name}" применен! Добавлено ${newEvents.length} событий.`);
         },
         
-        // Удалить шаблон
         async deleteTemplate(templateId) {
             const template = state.templates.find(t => t.id == templateId);
             if (!template) return;
@@ -1210,7 +1143,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
-                // Удаляем с сервера
                 const response = await fetch(`/api/templates/${templateId}`, {
                     method: 'DELETE'
                 });
@@ -1220,18 +1152,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error('Ошибка удаления шаблона:', error);
-                // Продолжаем локальное удаление
             }
             
-            // Удаляем локально
             state.templates = state.templates.filter(t => t.id != templateId);
             this.saveToLocalStorage();
             this.updateTemplatesList();
-            
             alert(`Шаблон "${template.name}" удален`);
         },
         
-        // Загрузить шаблоны
         async loadTemplates() {
             try {
                 const saved = localStorage.getItem('scheduleTemplates');
@@ -1244,12 +1172,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         },
         
-        // Сохранить в localStorage
         saveToLocalStorage() {
             localStorage.setItem('scheduleTemplates', JSON.stringify(state.templates));
         },
         
-        // Загрузить из localStorage
         loadFromLocalStorage() {
             try {
                 const saved = localStorage.getItem('scheduleTemplates');
@@ -1262,7 +1188,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         },
         
-        // Обновить список шаблонов в UI
         updateTemplatesList() {
             const list = document.getElementById('templatesList');
             const noTemplatesMsg = document.getElementById('noTemplatesMessage');
@@ -1270,7 +1195,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!list) return;
             
             list.innerHTML = '';
-            
             if (state.templates.length === 0) {
                 if (noTemplatesMsg) {
                     noTemplatesMsg.style.display = 'block';
@@ -1305,56 +1229,44 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                 `;
-                
                 list.appendChild(templateItem);
             });
             
-            // Обработчики для кнопок шаблонов
             document.querySelectorAll('.apply-template-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const templateId = btn.dataset.id;
-                    alert('Применение шаблонов пока не реализовано');
+                    // Исправлено: вызываем метод применения шаблона
+                    templateManager.applyTemplate(templateId); 
                 });
             });
-            
+
             document.querySelectorAll('.delete-template-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const templateId = btn.dataset.id;
-                    if (confirm('Удалить этот шаблон?')) {
-                        state.templates = state.templates.filter(t => t.id != templateId);
-                        this.saveToLocalStorage();
-                        this.updateTemplatesList();
-
-                        alert('Шаблон удален');
-                    }
+                    templateManager.deleteTemplate(templateId);
                 });
             });
-        }
+        },
         
-        // Редактировать шаблон
         editTemplate(templateId) {
             const template = state.templates.find(t => t.id == templateId);
             if (!template) return;
             
-            // Заполняем форму редактирования
             document.getElementById('templateName').value = template.name;
             document.getElementById('templateDescription').value = template.description || '';
             document.getElementById('savePlan').checked = template.settings?.includePlan !== false;
             document.getElementById('saveFact').checked = template.settings?.includeFact !== false;
-            
-            // Показываем модальное окно
+
             const modal = new bootstrap.Modal(document.getElementById('saveTemplateModal'));
             modal.show();
             
-            // Меняем обработчик формы
             const form = document.getElementById('saveTemplateForm');
             const originalHandler = form.onsubmit;
             
             form.onsubmit = async (e) => {
                 e.preventDefault();
-                
                 const updatedTemplate = {
                     ...template,
                     name: document.getElementById('templateName').value,
@@ -1364,29 +1276,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         includeFact: document.getElementById('saveFact').checked
                     }
                 };
-                
                 await this.updateTemplate(templateId, updatedTemplate);
                 modal.hide();
-                
-                // Восстанавливаем оригинальный обработчик
                 form.onsubmit = originalHandler;
                 form.reset();
             };
         },
         
-        // Обновить шаблон
         async updateTemplate(templateId, templateData) {
             try {
                 const response = await fetch(`/api/templates/${templateId}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(templateData)
                 });
-                
+
                 if (response.ok) {
-                    // Обновляем локально
                     const index = state.templates.findIndex(t => t.id == templateId);
                     if (index !== -1) {
                         state.templates[index] = templateData;
@@ -1397,7 +1302,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error('Ошибка обновления шаблона:', error);
-                // Обновляем локально как fallback
                 const index = state.templates.findIndex(t => t.id == templateId);
                 if (index !== -1) {
                     state.templates[index] = templateData;
@@ -1408,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     };
-    
+
     // Элементы DOM
     const elements = {
         scheduleBody: document.getElementById('scheduleBody'),
@@ -1435,13 +1339,13 @@ document.addEventListener('DOMContentLoaded', function() {
         wheelPeriod: document.getElementById('wheelPeriod'),
         wheelLegend: document.getElementById('wheelLegend'),
         quickEventBtn: document.getElementById('quickEventBtn'),
-        clearDayBtn: document.getElementById('clearDayBtn'),
-        copyDayBtn: document.getElementById('copyDayBtn'),
+        clearDayBtn: document.getElementById('clearDayBtn'), // Теперь кнопка существует в HTML
+        copyDayBtn: document.getElementById('copyDayBtn'),   // Теперь кнопка существует в HTML
         statsBtn: document.getElementById('statsBtn'),
         addPlanBtn: document.getElementById('addPlanBtn'),
         addFactBtn: document.getElementById('addFactBtn')
     };
-    
+
     // Инициализация
     init();
     
@@ -1449,26 +1353,23 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Начало инициализации...');
         
         initSchedule();
-        initSelectionHandlers(); // ← ВАЖНО
-        
+        initSelectionHandlers();
         initTimeSelects();
+        
         await loadCategories();
         await loadEvents();
         await templateManager.loadTemplates();
+        
         initEventHandlers();
         initCurrentTimeIndicator();
         updateWeekRange();
         setCurrentWeek();
-    
+        
         renderEvents();
     }
-
-
     
-    // Раздел 1.1: Двухколоночная структура дня
     function initSchedule() {
         elements.scheduleBody.innerHTML = '';
-        
         const startHour = parseFloat(state.timeSettings.startHour);
         const endHour = parseFloat(state.timeSettings.endHour);
         
@@ -1482,13 +1383,11 @@ document.addEventListener('DOMContentLoaded', function() {
             row.className = 'time-slot-row';
             if (isHourMark) row.classList.add('hour-marker');
             
-            // Колонка времени
             const timeCell = document.createElement('td');
             timeCell.className = 'time-column';
             timeCell.textContent = timeString;
             row.appendChild(timeCell);
             
-            // Колонки для каждого дня (раздельные колонки План/Факт)
             for (let day = 0; day < 7; day++) {
                 const planCell = document.createElement('td');
                 planCell.className = 'plan-column';
@@ -1507,15 +1406,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 row.appendChild(planCell);
                 row.appendChild(factCell);
             }
-            
             elements.scheduleBody.appendChild(row);
         }
-        
         updateCurrentTimeHighlight();
     }
     
-    // Раздел 1.4-1.5: Выбор и групповая обработка ячеек
     function initSelectionHandlers() {
+        // ИСПРАВЛЕННЫЙ ОБРАБОТЧИК КЛИКА
         elements.scheduleTable.addEventListener('click', handleCellClick);
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
@@ -1523,53 +1420,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function handleCellClick(event) {
         console.log('Клик по таблице:', event.target);
-        // Проверяем, кликнули ли на самом событии
-        const eventElement = event.target.closest('.plan-event, .fact-event');
         
+        // 1. Проверяем клик по событию
+        const eventElement = event.target.closest('.plan-event, .fact-event');
         if (eventElement) {
+            // Если нажат Ctrl, не редактируем, а пропускаем (можно добавить выделение событий)
+            if (state.isCtrlPressed) return;
+            
             console.log('Найдено событие с ID:', eventElement.dataset.eventId);
-            // Кликнули на событии - редактируем
             editEvent(eventElement.dataset.eventId);
             return;
         }
         
-        // Проверяем, кликнули ли на ячейке (плане или факте)
+        // 2. Проверяем клик по ячейке
         const cell = event.target.closest('.plan-column, .fact-column');
-        if (!cell) {
-            console.log('Не ячейка');
-            return;
-        }
-
+        if (!cell) return;
+        
         console.log('Клик по ячейке:', cell.dataset);
         
-        // Иначе создаем новое событие в этой ячейке
-        const day = parseInt(cell.dataset.day);
-        const time = cell.dataset.time;
-        const type = cell.dataset.type;
-        
-        // Определяем дату на основе выбранной недели
-        const weekStart = getWeekStartDate();
-        const eventDate = new Date(weekStart);
-        eventDate.setDate(weekStart.getDate() + day);
-        
-        // Время начала события
-        const [hours, minutes] = time.split(':').map(Number);
-        const startTime = new Date(eventDate);
-        startTime.setHours(hours, minutes, 0, 0);
-        
-        // Время окончания (+15 минут)
-        const endTime = new Date(startTime);
-        endTime.setMinutes(endTime.getMinutes() + 15);
-        
-        // Открываем форму с предзаполненным временем
-        // FIXED: replaced missing function
-showQuickAddModal(type, startTime, endTime);
-// openAddEventForm(type, {
-            start: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
-            end: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2,
- '0')}`,
-            date: eventDate.toISOString().split('T')[0]
-        });
+        // 3. ЛОГИКА: Если Ctrl зажат - выделяем, иначе - создаем
+        if (state.isCtrlPressed) {
+            toggleCellSelection(cell, cell.dataset.id);
+            updateBulkEditPanel();
+        } else {
+            // Если обычный клик - сбрасываем массовое выделение и создаем событие
+            if (state.selectedCells.size > 0) {
+                clearSelection();
+                hideBulkEditPanel();
+            }
+            createEventFromCell(cell);
+        }
     }
     
     function createEventFromCell(cell) {
@@ -1577,55 +1457,42 @@ showQuickAddModal(type, startTime, endTime);
         const time = cell.dataset.time;
         const type = cell.dataset.type;
         
-        // Определяем дату на основе выбранной недели
         const weekStart = getWeekStartDate();
         const eventDate = new Date(weekStart);
         eventDate.setDate(weekStart.getDate() + day);
         
-        // Время начала события
         const [hours, minutes] = time.split(':').map(Number);
         const startTime = new Date(eventDate);
         startTime.setHours(hours, minutes, 0, 0);
         
-        // Время окончания (+15 минут)
         const endTime = new Date(startTime);
         endTime.setMinutes(endTime.getMinutes() + 15);
         
-        // Показываем быструю форму для создания события
         showQuickAddModal(type, startTime, endTime);
     }
     
     function showQuickAddModal(type, startTime, endTime) {
-        // Заполняем форму быстрого добавления
         document.getElementById('quickType').value = type;
         document.getElementById('startDate').value = startTime.toISOString().split('T')[0];
-        document.getElementById('startTime').value = 
-            `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+        document.getElementById('startTime').value = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
         document.getElementById('endDate').value = endTime.toISOString().split('T')[0];
-        document.getElementById('endTime').value = 
-            `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+        document.getElementById('endTime').value = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
         
-        // Показываем модальное окно
         const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
         modal.show();
         
-        // Фокусируемся на выборе категории
         setTimeout(() => {
             document.getElementById('categorySelect').focus();
         }, 500);
     }
     
     async function editEvent(eventId) {
-        console.log('editEvent called for id:', eventId);
-        
         const event = state.events.find(e => e.id == eventId);
         if (!event) {
-            console.error('Событие не найдено:', eventId);
             alert('Событие не найдено');
             return;
         }
         
-        // Заполняем форму редактирования
         document.querySelector(`input[name="eventType"][value="${event.type}"]`).checked = true;
         document.getElementById('categorySelect').value = event.category_id;
         
@@ -1633,34 +1500,26 @@ showQuickAddModal(type, startTime, endTime);
         const endTime = new Date(event.end_time);
         
         document.getElementById('startDate').value = startTime.toISOString().split('T')[0];
-        document.getElementById('startTime').value = 
-            `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+        document.getElementById('startTime').value = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
         document.getElementById('endDate').value = endTime.toISOString().split('T')[0];
-        document.getElementById('endTime').value = 
-            `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
-        
+        document.getElementById('endTime').value = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
         document.getElementById('eventDescription').value = event.description || '';
         
-        // Показываем модальное окно
         const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
         modal.show();
         
-        // Сохраняем ID редактируемого события
         const modalElement = document.getElementById('addEventModal');
         modalElement.dataset.editingEventId = eventId;
         
-        // Меняем заголовок и кнопку
         document.querySelector('#addEventModal .modal-title').textContent = 'Редактировать событие';
         const submitBtn = document.querySelector('#addEventForm button[type="submit"]');
         submitBtn.textContent = 'Сохранить изменения';
         submitBtn.classList.remove('btn-primary');
         submitBtn.classList.add('btn-warning');
         
-        // Удаляем старую кнопку удаления если есть
         const oldDeleteBtn = document.getElementById('deleteEventBtn');
         if (oldDeleteBtn) oldDeleteBtn.remove();
         
-        // Добавляем кнопку удаления
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
         deleteBtn.className = 'btn btn-danger';
@@ -1668,23 +1527,19 @@ showQuickAddModal(type, startTime, endTime);
         deleteBtn.innerHTML = '<i class="bi bi-trash me-2"></i>Удалить';
         deleteBtn.style.marginRight = 'auto';
         
-        // Обработчик удаления
         deleteBtn.onclick = () => {
             if (confirm('Удалить это событие?')) {
                 deleteEventById(eventId);
                 modal.hide();
             }
         };
-
         document.querySelector('#addEventForm .modal-footer').prepend(deleteBtn);
         
-        // Обработчик формы для обновления
         const form = document.getElementById('addEventForm');
         const originalSubmit = form.onsubmit;
         
         form.onsubmit = async function(e) {
             e.preventDefault();
-            
             const updatedData = {
                 id: eventId,
                 type: document.querySelector('input[name="eventType"]:checked').value,
@@ -1697,7 +1552,6 @@ showQuickAddModal(type, startTime, endTime);
             await updateEvent(eventId, updatedData);
             modal.hide();
             
-            // Восстанавливаем оригинальную форму
             form.reset();
             form.onsubmit = originalSubmit;
             modalElement.dataset.editingEventId = '';
@@ -1710,33 +1564,20 @@ showQuickAddModal(type, startTime, endTime);
     
     async function updateEvent(eventId, eventData) {
         try {
-            // Округляем время
-            const startTime = roundToNearest15Minutes(
-                new Date(eventData.start_time), 
-                'floor'
-            );
-            const endTime = roundToNearest15Minutes(
-                new Date(eventData.end_time), 
-                'ceil'
-            );
+            const startTime = roundToNearest15Minutes(new Date(eventData.start_time), 'floor');
+            const endTime = roundToNearest15Minutes(new Date(eventData.end_time), 'ceil');
             
             eventData.start_time = formatTimeForAPI(startTime);
             eventData.end_time = formatTimeForAPI(endTime);
             
-            // Обновляем в массиве events
             const index = state.events.findIndex(e => e.id == eventId);
             if (index !== -1) {
-                state.events[index] = {
-                    ...state.events[index],
-                    ...eventData
-                };
+                state.events[index] = { ...state.events[index], ...eventData };
             }
             
-            // Обновляем отображение
             renderEvents();
             updateBalanceWheel();
             saveEventsToLocalStorage();
-            
             alert('Событие обновлено!');
             return true;
         } catch (error) {
@@ -1748,102 +1589,19 @@ showQuickAddModal(type, startTime, endTime);
     
     async function deleteEventById(eventId) {
         try {
-            const response = await fetch(`/api/events/${eventId}`, {
-                method: 'DELETE'
-            });
-            
-            if (response.ok) {
-                // Удаляем событие из состояния
-                state.events = state.events.filter(e => e.id != eventId);
-                
-                renderEvents();
-                updateBalanceWheel();
-                saveEventsToLocalStorage();
-                
-                alert('Событие удалено!');
-                return true;
-            }
+            await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
         } catch (error) {
             console.error('Ошибка удаления события:', error);
         }
         
-        // Fallback: удаляем локально
         state.events = state.events.filter(e => e.id != eventId);
         renderEvents();
         updateBalanceWheel();
         saveEventsToLocalStorage();
-        alert('Событие удалено (локально)!');
+        alert('Событие удалено!');
         return true;
     }
 
-    async function bulkFill(type) {
-        const categoryId = elements.bulkCategorySelect.value;
-        if (!categoryId) {
-            alert('Выберите категорию');
-            return;
-        }
-        
-        const eventsToCreate = [];
-        const weekStart = getWeekStartDate();
-        
-        state.selectedCells.forEach(cellId => {
-            const [day, time, cellType] = cellId.split('-');
-            
-            if (cellType === type) {
-                const eventDate = new Date(weekStart);
-                eventDate.setDate(weekStart.getDate() + parseInt(day));
-                
-                const [hours, minutes] = time.split(':').map(Number);
-                const startTime = new Date(eventDate);
-                startTime.setHours(hours, minutes, 0, 0);
-                
-                const endTime = new Date(startTime);
-                endTime.setMinutes(endTime.getMinutes() + 15);
-                
-                eventsToCreate.push({
-                    type: type,
-                    category_id: parseInt(categoryId),
-                    start_time: formatTimeForAPI(startTime),
-                    end_time: formatTimeForAPI(endTime),
-                    description: 'Массовое заполнение'
-                });
-            }
-        });
-        
-        if (eventsToCreate.length === 0) {
-            alert('Не выбрано ни одной ячейки для заполнения');
-            return;
-        }
-        
-        try {
-            const response = await fetch('/api/bulk-events',
- {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ events: eventsToCreate })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                // Добавляем новые события в состояние
-                state.events = state.events.concat(result.events);
-                
-                renderEvents();
-                updateBalanceWheel();
-                saveEventsToLocalStorage();
-                clearSelection();
-                
-                alert(`Создано ${result.events.length} событий`);
-            }
-        } catch (error) {
-            console.error('Ошибка массового заполнения:', error);
-            alert('Ошибка при массовом заполнении');
-        }
-    }
-    
     function toggleCellSelection(cell, cellId) {
         if (state.selectedCells.has(cellId)) {
             state.selectedCells.delete(cellId);
@@ -1852,47 +1610,6 @@ showQuickAddModal(type, startTime, endTime);
             state.selectedCells.add(cellId);
             cell.classList.add('selected');
         }
-    }
-    
-    function selectCell(cell, cellId) {
-        state.selectedCells.add(cellId);
-        cell.classList.add('selected');
-    }
-    
-    function selectCellRange(startCell, endCell) {
-        const startCoords = getCellCoordinates(startCell);
-        const endCoords = getCellCoordinates(endCell);
-        
-        const minDay = Math.min(startCoords.day, endCoords.day);
-        const maxDay = Math.max(startCoords.day, endCoords.day);
-        const minTime = Math.min(startCoords.timeValue, endCoords.timeValue);
-        const maxTime = Math.max(startCoords.timeValue, endCoords.timeValue);
-        const type = startCell.dataset.type;
-        
-        // Выбираем все ячейки в диапазоне
-        for (let day = minDay; day <= maxDay; day++) {
-            for (let time = minTime; time <= maxTime; time += 15) {
-                const hours = Math.floor(time / 60);
-                const minutes = time % 60;
-                const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-                const cellId = `${day}-${timeString}-${type}`;
-                
-                const cell = document.querySelector(`[data-id="${cellId}"]`);
-                if (cell) {
-                    state.selectedCells.add(cellId);
-                    cell.classList.add('selected');
-                }
-            }
-        }
-    }
-    
-    function getCellCoordinates(cell) {
-        const day = parseInt(cell.dataset.day);
-        const [hours, minutes] = cell.dataset.time.split(':').map(Number);
-        return {
-            day: day,
-            timeValue: hours * 60 + minutes
-        };
     }
     
     function clearSelection() {
@@ -1904,34 +1621,26 @@ showQuickAddModal(type, startTime, endTime);
     }
     
     function handleKeyDown(event) {
-        if (event.key === 'Control' || event.key === 'Meta') {
-            state.isCtrlPressed = true;
-        } else if (event.key === 'Shift') {
-            state.isShiftPressed = true;
-        } else if (event.key === 'Escape') {
+        if (event.key === 'Control' || event.key === 'Meta') state.isCtrlPressed = true;
+        else if (event.key === 'Shift') state.isShiftPressed = true;
+        else if (event.key === 'Escape') {
             clearSelection();
             hideBulkEditPanel();
         }
     }
     
     function handleKeyUp(event) {
-        if (event.key === 'Control' || event.key === 'Meta') {
-            state.isCtrlPressed = false;
-        } else if (event.key === 'Shift') {
-            state.isShiftPressed = false;
-        }
+        if (event.key === 'Control' || event.key === 'Meta') state.isCtrlPressed = false;
+        else if (event.key === 'Shift') state.isShiftPressed = false;
     }
     
-    // Раздел 1.5: Массовое заполнение ячеек
     function updateBulkEditPanel() {
         const count = state.selectedCells.size;
-        
         if (count === 0) {
             elements.bulkEditPanel.classList.remove('show');
             return;
         }
-        
-        elements.selectedCount.textContent = `${count} ${getNoun(count, 'ячейка', 'ячейки', 'ячеек')} выбрано`;
+        elements.selectedCount.textContent = `${count} ячеек выбрано`;
         elements.bulkEditPanel.classList.add('show');
     }
     
@@ -1939,17 +1648,6 @@ showQuickAddModal(type, startTime, endTime);
         elements.bulkEditPanel.classList.remove('show');
     }
     
-    function getNoun(number, one, two, five) {
-        let n = Math.abs(number);
-        n %= 100;
-        if (n >= 5 && n <= 20) return five;
-        n %= 10;
-        if (n === 1) return one;
-        if (n >= 2 && n <= 4) return two;
-        return five;
-    }
-    
-    // Раздел 1.3: Функционал работы с категориями
     async function loadCategories() {
         try {
             const response = await fetch('/api/v1/categories');
@@ -1963,7 +1661,6 @@ showQuickAddModal(type, startTime, endTime);
             console.error('Ошибка загрузки категорий:', error);
             loadDefaultCategories();
         }
-        
         updateCategorySelects();
         updateCategoriesList();
     }
@@ -1980,7 +1677,6 @@ showQuickAddModal(type, startTime, endTime);
     }
     
     function updateCategorySelects() {
-        // Основной селект категорий
         const selects = [
             elements.categorySelect,
             elements.bulkCategorySelect,
@@ -2003,14 +1699,11 @@ showQuickAddModal(type, startTime, endTime);
     
     function updateCategoriesList() {
         if (!elements.categoriesList) return;
-        
         elements.categoriesList.innerHTML = '';
-        
         state.categories.forEach(category => {
             const categoryDiv = document.createElement('div');
             categoryDiv.className = 'category-item';
             categoryDiv.style.borderLeftColor = category.color;
-            
             categoryDiv.innerHTML = `
                 <div class="category-color" style="background-color: ${category.color}"></div>
                 <div class="category-info">
@@ -2026,23 +1719,17 @@ showQuickAddModal(type, startTime, endTime);
                     </button>
                 </div>
             `;
-            
             elements.categoriesList.appendChild(categoryDiv);
         });
         
-        // Обработчики удаления категорий
         document.querySelectorAll('.delete-category-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const categoryId = this.dataset.id;
                 const category = state.categories.find(c => c.id == categoryId);
-                
                 if (category) {
-                    document.getElementById('deleteMessage').textContent = 
-                        `Вы уверены, что хотите удалить категорию "${category.name}"? Все связанные события будут очищены.`;
-                    
+                    document.getElementById('deleteMessage').textContent = `Вы уверены, что хотите удалить категорию "${category.name}"? Все связанные события будут очищены.`;
                     const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
                     modal.show();
-                    
                     document.getElementById('confirmDeleteBtn').onclick = function() {
                         deleteCategory(categoryId);
                         modal.hide();
@@ -2053,37 +1740,21 @@ showQuickAddModal(type, startTime, endTime);
     }
     
     function deleteCategory(categoryId) {
-        // Удаляем события этой категории
         state.events = state.events.filter(event => event.category_id != categoryId);
-        
-        // Удаляем категорию
         state.categories = state.categories.filter(c => c.id != categoryId);
-        
-        // Обновляем интерфейс
         updateCategorySelects();
         updateCategoriesList();
         renderEvents();
         updateBalanceWheel();
-        
-        // Очищаем ячейки с удаленной категорией
-        document.querySelectorAll('.plan-event, .fact-event').forEach(eventEl => {
-            if (eventEl.dataset.categoryId == categoryId) {
-                eventEl.remove();
-            }
-        });
-        
-        // Сохраняем в localStorage
         saveData();
     }
     
-    // Раздел 1.7: Уменьшенные ячейки
     function initTimeSelects() {
         const startTimeSelect = document.getElementById('startTime');
         const endTimeSelect = document.getElementById('endTime');
         
         if (startTimeSelect) {
-            startTimeSelect.innerHTML
- = '';
+            startTimeSelect.innerHTML = '';
             for (let hour = 0; hour < 24; hour++) {
                 for (let minute = 0; minute < 60; minute += config.slotMinutes) {
                     const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -2108,36 +1779,16 @@ showQuickAddModal(type, startTime, endTime);
             }
         }
     }
-
-    function setTimeSelectToNow(selectId, roundType = 'floor') {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-        
-        const now = new Date();
-        const roundedTime = roundToNearest15Minutes(now, roundType);
-        const timeString = `${roundedTime.getHours().toString().padStart(2, '0')}:${roundedTime.getMinutes().toString().padStart(2, '0')}`;
-        
-        // Ищем соответствующую опцию
-        for (let option of select.options) {
-            if (option.value === timeString) {
-                select.value = timeString;
-                break;
-            }
-        }
-    }
     
-    // Раздел 2.1-2.2: Очистка верхней панели и улучшение виджета недели
     function updateWeekRange() {
         const [year, week] = elements.weekPicker.value.split('-W');
         const dates = getWeekDates(year, week);
-        
         if (dates.start && dates.end) {
             const startStr = formatDate(dates.start);
             const endStr = formatDate(dates.end);
             if (elements.weekRange) {
                 elements.weekRange.textContent = `${year} - Неделя ${week} (${startStr} - ${endStr})`;
             }
-            // Обновляем даты в заголовках дней
             updateDayHeaders(dates.start);
         }
     }
@@ -2146,22 +1797,15 @@ showQuickAddModal(type, startTime, endTime);
         const simple = new Date(year, 0, 1 + (week - 1) * 7);
         const dow = simple.getDay();
         const start = new Date(simple);
-        
-        if (dow <= 4) {
-            start.setDate(simple.getDate() - simple.getDay() + 1);
-        } else {
-            start.setDate(simple.getDate() + 8 - simple.getDay());
-        }
-        
+        if (dow <= 4) start.setDate(simple.getDate() - simple.getDay() + 1);
+        else start.setDate(simple.getDate() + 8 - simple.getDay());
         const end = new Date(start);
         end.setDate(start.getDate() + 6);
-        
         return { start, end };
     }
     
     function updateDayHeaders(startDate) {
         const dayElements = document.querySelectorAll('.day-date');
-        
         dayElements.forEach((el, index) => {
             const date = new Date(startDate);
             date.setDate(startDate.getDate() + index);
@@ -2177,14 +1821,12 @@ showQuickAddModal(type, startTime, endTime);
         return `${day}.${month}.${year}`;
     }
     
-    // Раздел 3.1: Динамическая подсветка текущего времени
     function initCurrentTimeIndicator() {
         updateCurrentTimeHighlight();
-        setInterval(updateCurrentTimeHighlight, 60000); // Обновлять каждую минуту
+        setInterval(updateCurrentTimeHighlight, 60000);
     }
     
     function updateCurrentTimeHighlight() {
-        // Удаляем старую подсветку
         document.querySelectorAll('.current-time-slot').forEach(el => {
             el.classList.remove('current-time-slot');
         });
@@ -2192,12 +1834,10 @@ showQuickAddModal(type, startTime, endTime);
         const now = new Date();
         const currentDay = now.getDay();
         const adjustedDay = currentDay === 0 ? 6 : currentDay - 1;
-        
-        // Находим текущий временной слот
         const currentHour = now.getHours() + now.getMinutes() / 60;
-        const slots = document.querySelectorAll('.time-slot-row');
         
-        slots.forEach((row, index) => {
+        const slots = document.querySelectorAll('.time-slot-row');
+        slots.forEach((row) => {
             const timeCell = row.querySelector('.time-column');
             if (!timeCell) return;
             
@@ -2205,22 +1845,15 @@ showQuickAddModal(type, startTime, endTime);
             const slotTime = hours + minutes / 60;
             
             if (Math.abs(currentHour - slotTime) < config.slotMinutes / 120) {
-                // Подсвечиваем текущий слот
-                // Индекс для плана: 1 + adjustedDay*2, для факта: 1 + adjustedDay*2 + 1
                 const planCellIndex = 1 + adjustedDay * 2;
                 const factCellIndex = planCellIndex + 1;
                 
-                if (row.children[planCellIndex]) {
-                    row.children[planCellIndex].classList.add('current-time-slot');
-                }
-                if (row.children[factCellIndex]) {
-                    row.children[factCellIndex].classList.add('current-time-slot');
-                }
+                if (row.children[planCellIndex]) row.children[planCellIndex].classList.add('current-time-slot');
+                if (row.children[factCellIndex]) row.children[factCellIndex].classList.add('current-time-slot');
             }
         });
     }
-     
-    // Раздел 5: Колесо баланса
+    
     function updateBalanceWheel() {
         const period = elements.wheelPeriod.value;
         const data = calculateBalanceWheelData(period);
@@ -2233,30 +1866,24 @@ showQuickAddModal(type, startTime, endTime);
         
         if (period === 'day') {
             const today = now.toISOString().split('T')[0];
-            filteredEvents = state.events.filter(event => {
-                const eventDate = event.start_time.split('T')[0];
-                return eventDate === today;
-            });
+            filteredEvents = state.events.filter(event => event.start_time.split('T')[0] === today);
         } else {
-            // Неделя
             const weekStart = getWeekStartDate();
             const weekEnd = new Date(weekStart);
             weekEnd.setDate(weekEnd.getDate() + 6);
-            
             filteredEvents = state.events.filter(event => {
                 const eventDate = new Date(event.start_time);
                 return eventDate >= weekStart && eventDate <= weekEnd;
             });
         }
         
-        // Группируем по категориям
         const categoryStats = {};
         let totalHours = 0;
         
         filteredEvents.forEach(event => {
             const start = new Date(event.start_time);
             const end = new Date(event.end_time);
-            const duration = (end - start) / (1000 * 60 * 60); // Часы
+            const duration = (end - start) / (1000 * 60 * 60);
             
             const category = state.categories.find(c => c.id == event.category_id);
             const categoryName = category ? category.name : 'Без категории';
@@ -2267,12 +1894,10 @@ showQuickAddModal(type, startTime, endTime);
                     color: category ? category.color : '#6c757d'
                 };
             }
-            
             categoryStats[categoryName].hours += duration;
             totalHours += duration;
         });
         
-        // Преобразуем в массив и считаем проценты
         const result = Object.keys(categoryStats).map(name => ({
             name,
             hours: categoryStats[name].hours,
@@ -2280,9 +1905,7 @@ showQuickAddModal(type, startTime, endTime);
             percentage: totalHours > 0 ? (categoryStats[name].hours / totalHours) * 100 : 0
         }));
         
-        // Сортируем по убыванию
         result.sort((a, b) => b.hours - a.hours);
-        
         return result;
     }
     
@@ -2292,11 +1915,9 @@ showQuickAddModal(type, startTime, endTime);
         const centerY = elements.balanceWheel.height / 2;
         const radius = Math.min(centerX, centerY) - 10;
         
-        // Очищаем canvas
         ctx.clearRect(0, 0, elements.balanceWheel.width, elements.balanceWheel.height);
         
         if (data.length === 0) {
-            // Отображаем пустое колесо
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
             ctx.fillStyle = '#f8f9fa';
@@ -2305,40 +1926,31 @@ showQuickAddModal(type, startTime, endTime);
             ctx.lineWidth = 2;
             ctx.stroke();
             
-            // Текст "Нет данных"
             ctx.fillStyle = '#6c757d';
             ctx.font = '14px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('Нет данных', centerX, centerY);
             
-            if (elements.wheelLegend) {
-                elements.wheelLegend.innerHTML = '<div class="text-muted">Нет данных для отображения</div>';
-            }
+            if (elements.wheelLegend) elements.wheelLegend.innerHTML = '<div class="text-muted">Нет данных для отображения</div>';
             return;
         }
         
         let startAngle = 0;
-        
-        // Рисуем сектора
         data.forEach(item => {
             const sliceAngle = (item.percentage / 100) * Math.PI * 2;
-            
             ctx.beginPath();
             ctx.moveTo(centerX, centerY);
             ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
             ctx.closePath();
-            
             ctx.fillStyle = item.color;
             ctx.fill();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
             ctx.stroke();
-            
             startAngle += sliceAngle;
         });
         
-        // Центральный круг
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius * 0.4, 0, Math.PI * 2);
         ctx.fillStyle = '#fff';
@@ -2347,16 +1959,12 @@ showQuickAddModal(type, startTime, endTime);
         ctx.lineWidth = 1;
         ctx.stroke();
         
-        // Обновляем легенду
         updateWheelLegend(data);
     }
     
-    function updateWheelLegend(data)
- {
+    function updateWheelLegend(data) {
         if (!elements.wheelLegend) return;
-        
         elements.wheelLegend.innerHTML = '';
-        
         data.forEach(item => {
             const legendItem = document.createElement('div');
             legendItem.className = 'wheel-legend-item';
@@ -2369,49 +1977,27 @@ showQuickAddModal(type, startTime, endTime);
         });
     }
     
-    // Вспомогательные функции
     async function loadEvents() {
-        console.log('Загрузка событий...');
         try {
             const [year, week] = elements.weekPicker.value.split('-W');
-            console.log('Запрашиваемая неделя:', year, week);
-            
             const response = await fetch(`/api/events/week/${year}-W${week.padStart(2, '0')}`);
-            
             if (response.ok) {
                 const data = await response.json();
-                console.log('Получены данные:', data);
-                
                 if (data.success) {
                     state.events = data.events || [];
-                    console.log('Загружено событий:', state.events.length);
                 }
-            } else {
-                console.error('Ошибка ответа сервера:', response.status);
             }
         } catch (error) {
             console.error('Ошибка загрузки событий:', error);
         }
-        
-        console.log('Всего событий в состоянии:', state.events.length);
         renderEvents();
         updateBalanceWheel();
     }
-
+    
     async function saveEvent(eventData) {
-        console.log('Сохранение события:', eventData);
-        
         try {
-            const startTime = roundToNearest15Minutes(
-                new Date(eventData.start_time), 
-                'floor'
-            );
-            const endTime = roundToNearest15Minutes(
-                new Date(eventData.end_time), 
-                'ceil'
-            );
-            
-            console.log('Округленное время:', { startTime, endTime });
+            const startTime = roundToNearest15Minutes(new Date(eventData.start_time), 'floor');
+            const endTime = roundToNearest15Minutes(new Date(eventData.end_time), 'ceil');
             
             eventData.start_time = formatTimeForAPI(startTime);
             eventData.end_time = formatTimeForAPI(endTime);
@@ -2422,19 +2008,11 @@ showQuickAddModal(type, startTime, endTime);
                 createdAt: new Date().toISOString()
             };
             
-            console.log('Создано событие:', newEvent);
-            
             state.events.push(newEvent);
-            
-            // Отладочная информация
-            console.log('Событий после добавления:', state.events.length);
-            
             renderEvents();
             updateBalanceWheel();
             saveEventsToLocalStorage();
-            
             return { success: true, event: newEvent };
-            
         } catch (error) {
             console.error('Ошибка сохранения события:', error);
             return { success: false, error: error.message };
@@ -2447,7 +2025,6 @@ showQuickAddModal(type, startTime, endTime);
     }
     
     function renderEvents() {
-        // Очищаем существующие события
         document.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
         
         state.events.forEach(event => {
@@ -2469,15 +2046,8 @@ showQuickAddModal(type, startTime, endTime);
                 const row = elements.scheduleBody.children[startSlot];
                 if (!row) return;
                 
-                // Теперь у нас в строке: time-cell + (7 дней × 2 колонки)
-                // Индекс для плана дня N: 1 + N*2, для факта: 1 + N*2 + 1
-                const planCellIndex = 1 + adjustedDay * 2;
-                const factCellIndex = planCellIndex + 1;
-                
                 const columnOffset = 1 + (adjustedDay * 2);
-                const targetCell = event.type === 'plan' ? 
-                    row.children[columnOffset] : // план
-                    row.children[columnOffset + 1]; // факт
+                const targetCell = event.type === 'plan' ? row.children[columnOffset] : row.children[columnOffset + 1];
                 
                 if (!targetCell) return;
                 
@@ -2490,9 +2060,7 @@ showQuickAddModal(type, startTime, endTime);
                 eventDiv.style.cursor = 'pointer';
                 eventDiv.title = 'Кликните для редактирования';
                 
-                if (category) {
-                    eventDiv.style.borderLeftColor = category.color;
-                }
+                if (category) eventDiv.style.borderLeftColor = category.color;
                 
                 if (durationSlots > 1) {
                     eventDiv.style.height = `${durationSlots * config.slotHeight - 2}px`;
@@ -2500,12 +2068,11 @@ showQuickAddModal(type, startTime, endTime);
                 }
                 
                 targetCell.appendChild(eventDiv);
-                
             } catch (error) {
                 console.error('Ошибка рендеринга события:', error);
             }
-        }); // Закрываем forEach здесь!
-    } // Закрываем функцию renderEvents здесь
+        });
+    }
     
     function getWeekStartDate() {
         const [year, week] = elements.weekPicker.value.split('-W');
@@ -2514,7 +2081,6 @@ showQuickAddModal(type, startTime, endTime);
     }
     
     function saveData() {
-        // Сохраняем события в localStorage (в реальном приложении - на сервер)
         localStorage.setItem('scheduleEvents', JSON.stringify(state.events));
         localStorage.setItem('scheduleCategories', JSON.stringify(state.categories));
     }
@@ -2523,6 +2089,19 @@ showQuickAddModal(type, startTime, endTime);
         const form = document.getElementById('addEventForm');
         form.reset();
         
+        // СБРОС СОСТОЯНИЯ МОДАЛКИ (Исправлено)
+        const oldDeleteBtn = document.getElementById('deleteEventBtn');
+        if (oldDeleteBtn) oldDeleteBtn.remove();
+        
+        const modalElement = document.getElementById('addEventModal');
+        if (modalElement.dataset.editingEventId) delete modalElement.dataset.editingEventId;
+        
+        document.querySelector('#addEventModal .modal-title').textContent = 'Добавить событие';
+        const submitBtn = document.querySelector('#addEventForm button[type="submit"]');
+        submitBtn.textContent = 'Добавить событие';
+        submitBtn.classList.remove('btn-warning');
+        submitBtn.classList.add('btn-primary');
+
         document.querySelector(`input[name="eventType"][value="${type}"]`).checked = true;
         
         if (presetData) {
@@ -2540,33 +2119,12 @@ showQuickAddModal(type, startTime, endTime);
             const startTime = roundToNearest15Minutes(today, 'floor');
             const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
             
-            const startTimeStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
-            const endTimeStr = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
-            
-            document.getElementById('startTime').value = startTimeStr;
-            document.getElementById('endTime').value = endTimeStr;
+            document.getElementById('startTime').value = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+            document.getElementById('endTime').value = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
         }
         
-        // Убираем старую кнопку удаления если есть
-        const deleteBtn = document.getElementById('deleteEventBtn');
-        if (deleteBtn) deleteBtn.remove();
-        
-        // Восстанавливаем оригинальную форму
-        const modalElement = document.getElementById('addEventModal');
-        if (modalElement.dataset.editingEventId) {
-            delete modalElement.dataset.editingEventId;
-        }
-        
-        document.querySelector('#addEventModal .modal-title').textContent = 'Добавить событие';
-        const submitBtn = document.querySelector('#addEventForm button[type="submit"]');
-        submitBtn.textContent = 'Добавить событие';
-        submitBtn.classList.remove('btn-warning');
-        submitBtn.classList.add('btn-primary');
-        
-        // Устанавливаем оригинальный обработчик
         form.onsubmit = async function(e) {
             e.preventDefault();
-            
             const eventData = {
                 type: document.querySelector('input[name="eventType"]:checked').value,
                 category_id: parseInt(document.getElementById('categorySelect').value),
@@ -2580,8 +2138,7 @@ showQuickAddModal(type, startTime, endTime);
                 return;
             }
             
-            const
- startDate = new Date(eventData.start_time.replace(' ', 'T'));
+            const startDate = new Date(eventData.start_time.replace(' ', 'T'));
             const endDate = new Date(eventData.end_time.replace(' ', 'T'));
             
             if (endDate <= startDate) {
@@ -2590,7 +2147,6 @@ showQuickAddModal(type, startTime, endTime);
             }
             
             const result = await saveEvent(eventData);
-            
             if (result.success) {
                 bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
                 this.reset();
@@ -2604,72 +2160,55 @@ showQuickAddModal(type, startTime, endTime);
         modal.show();
     }
     
-    // Функция для быстрого добавления события
-    async function quickAddEvent(type, categoryName, durationHours = 1, description = '') {
-        const category = state.categories.find(c => 
-            c.name.toLowerCase() === categoryName.toLowerCase()
-        );
-        
-        if (!category) {
-            alert(`Категория "${categoryName}" не найдена. Пожалуйста, создайте её сначала.`);
-            return;
-        }
-        
-        const now = new Date();
-        const startTime = roundToNearest15Minutes(now, 'floor');
-        const endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
-        
-        const eventData = {
-            type: type,
-            category_id: category.id,
-            start_time: formatTimeForAPI(startTime),
-            end_time: formatTimeForAPI(endTime),
-            description: description || category.name
-        };
-        
-        const result = await saveEvent(eventData);
-        
-        if (result) {
-            alert(`Событие "${category.name}" добавлено в ${type === 'plan' ? 'План' : 'Факт'}!`);
-        }
-    }
+    // ИСПРАВЛЕННОЕ БЫСТРОЕ ДОБАВЛЕНИЕ (Mapping)
+    const buttonCategoryMap = {
+        'quickBreakfastBtn': 'Отдых', // Или замените на 'Семья' или создайте 'Питание'
+        'quickWorkBtn': 'Работа',
+        'quickSportBtn': 'Спорт',
+        'quickStudyBtn': 'Учёба',
+        'quickRestBtn': 'Отдых'
+    };
 
-    
     function initEventHandlers() {
         console.log('Инициализация обработчиков событий...');
         
-        // Обработчик для всей таблицы
-        if (elements.scheduleTable) {
-            elements.scheduleTable.addEventListener('click', handleCellClick);
-        }
+        // Обновленные кнопки быстрого добавления
+        const quickButtons = ['quickBreakfastBtn', 'quickWorkBtn', 'quickSportBtn', 'quickStudyBtn', 'quickRestBtn'];
         
-        // Обработчики клавиш
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('keyup', handleKeyUp);
+        quickButtons.forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.addEventListener('click', (e) => {
+                    const text = e.target.textContent || e.target.closest('button').textContent;
+                    const desc = text.replace(/\s+/g, ' ').trim();
+                    
+                    // Получаем имя существующей категории из карты
+                    const categoryName = buttonCategoryMap[btnId];
+                    
+                    const duration = btnId.includes('Breakfast') ? 30 :
+                                   btnId.includes('Work') ? 60 :
+                                   btnId.includes('Sport') ? 60 :
+                                   btnId.includes('Study') ? 90 : 30;
+                    
+                    // Если категории нет, пробуем искать по имени кнопки или дефолтную
+                    if (!categoryName) {
+                        alert('Ошибка настройки категории кнопки');
+                        return;
+                    }
+                    
+                    addQuickEvent(categoryName, duration, desc);
+                });
+            }
+        });
         
-        // Навигация по неделям
-        if (elements.currentWeekBtn) {
-            elements.currentWeekBtn.addEventListener('click', setCurrentWeek);
-        }
-        if (elements.prevWeekBtn) {
-            elements.prevWeekBtn.addEventListener('click', prevWeek);
-        }
-        if (elements.nextWeekBtn) {
-            elements.nextWeekBtn.addEventListener('click', nextWeek);
-        }
-        if (elements.weekPicker) {
-            elements.weekPicker.addEventListener('change', updateWeek);
-        }
+        if (elements.currentWeekBtn) elements.currentWeekBtn.addEventListener('click', setCurrentWeek);
+        if (elements.prevWeekBtn) elements.prevWeekBtn.addEventListener('click', prevWeek);
+        if (elements.nextWeekBtn) elements.nextWeekBtn.addEventListener('click', nextWeek);
+        if (elements.weekPicker) elements.weekPicker.addEventListener('change', updateWeek);
         
-        // Кнопки добавления событий
-        if (elements.addPlanBtn) {
-            elements.addPlanBtn.addEventListener('click', () => openAddEventForm('plan'));
-        }
-        if (elements.addFactBtn) {
-            elements.addFactBtn.addEventListener('click', () => openAddEventForm('fact'));
-        }
+        if (elements.addPlanBtn) elements.addPlanBtn.addEventListener('click', () => openAddEventForm('plan'));
+        if (elements.addFactBtn) elements.addFactBtn.addEventListener('click', () => openAddEventForm('fact'));
         
-        // Шаблоны
         if (elements.saveTemplateBtn) {
             elements.saveTemplateBtn.addEventListener('click', () => {
                 const modal = new bootstrap.Modal(document.getElementById('saveTemplateModal'));
@@ -2685,26 +2224,15 @@ showQuickAddModal(type, startTime, endTime);
             });
         }
         
-        // Категории
-        if (elements.addCategoryBtn) {
-            elements.addCategoryBtn.addEventListener('click', showCategoryModal);
-        }
+        if (elements.addCategoryBtn) elements.addCategoryBtn.addEventListener('click', showCategoryModal);
         
         const categoryForm = document.getElementById('categoryForm');
-        if (categoryForm) {
-            categoryForm.addEventListener('submit', createCategory);
-        }
+        if (categoryForm) categoryForm.addEventListener('submit', createCategory);
         
-        // Массовое заполнение
-        if (elements.bulkPlanBtn) {
-            elements.bulkPlanBtn.addEventListener('click', () => bulkFill('plan'));
-        }
-        if (elements.bulkFactBtn) {
-            elements.bulkFactBtn.addEventListener('click', () => bulkFill('fact'));
-        }
-        if (elements.bulkClearBtn) {
-            elements.bulkClearBtn.addEventListener('click', bulkClear);
-        }
+        if (elements.bulkPlanBtn) elements.bulkPlanBtn.addEventListener('click', () => bulkFill('plan'));
+        if (elements.bulkFactBtn) elements.bulkFactBtn.addEventListener('click', () => bulkFill('fact'));
+        if (elements.bulkClearBtn) elements.bulkClearBtn.addEventListener('click', bulkClear);
+        
         if (elements.bulkCancelBtn) {
             elements.bulkCancelBtn.addEventListener('click', () => {
                 clearSelection();
@@ -2712,20 +2240,10 @@ showQuickAddModal(type, startTime, endTime);
             });
         }
         
-        // Быстрые действия
-        if (elements.quickEventBtn) {
-            elements.quickEventBtn.addEventListener('click', showQuickEventModal);
-        }
-        if (elements.statsBtn) {
-            elements.statsBtn.addEventListener('click', showStatistics);
-        }
+        if (elements.quickEventBtn) elements.quickEventBtn.addEventListener('click', showQuickEventModal);
+        if (elements.statsBtn) elements.statsBtn.addEventListener('click', showStatistics);
+        if (elements.wheelPeriod) elements.wheelPeriod.addEventListener('change', updateBalanceWheel);
         
-        // Колесо баланса
-        if (elements.wheelPeriod) {
-            elements.wheelPeriod.addEventListener('change', updateBalanceWheel);
-        }
-        
-        // Быстрые кнопки для шаблонов
         const saveTemplateQuickBtn = document.getElementById('saveTemplateQuickBtn');
         if (saveTemplateQuickBtn) {
             saveTemplateQuickBtn.addEventListener('click', () => {
@@ -2740,35 +2258,19 @@ showQuickAddModal(type, startTime, endTime);
             });
         }
         
-        // Быстрые кнопки добавления событий
-        const quickButtons = ['quickBreakfastBtn', 'quickWorkBtn', 'quickSportBtn', 'quickStudyBtn', 'quickRestBtn'];
-        quickButtons.forEach(btnId => {
-            const btn = document.getElementById(btnId);
-            if (btn) {
-                btn.addEventListener('click', (e) => {
-                    const text = e.target.textContent || e.target.closest('button').textContent;
-                    const desc = text.replace(/\s+/g, ' ').trim();
-                    const duration = btnId.includes('Breakfast') ? 30 : 
-                                   btnId.includes('Work') ? 60 :
-                                   btnId.includes('Sport') ? 60 :
-                                   btnId.includes('Study') ? 90 : 30;
-                    addQuickEvent(desc, duration, desc);
-                });
-            }
-        });
+        // Обработчики для новых кнопок очистки/копирования
+        if (elements.clearDayBtn) elements.clearDayBtn.addEventListener('click', clearCurrentDay);
+        if (elements.copyDayBtn) elements.copyDayBtn.addEventListener('click', copyCurrentDay);
         
-        // Создание шаблона
         const createTemplateBtn = document.getElementById('createTemplateBtn');
         if (createTemplateBtn) {
             createTemplateBtn.addEventListener('click', async () => {
                 const nameInput = document.getElementById('newTemplateName');
                 const name = nameInput.value.trim();
-                
                 if (!name) {
                     alert('Введите название шаблона');
                     return;
                 }
-                
                 try {
                     const template = await templateManager.saveCurrentWeekAsTemplate(name, '', true, false);
                     if (template) {
@@ -2782,12 +2284,10 @@ showQuickAddModal(type, startTime, endTime);
             });
         }
         
-        // Форма сохранения шаблона
         const saveTemplateForm = document.getElementById('saveTemplateForm');
         if (saveTemplateForm) {
             saveTemplateForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
                 const name = document.getElementById('templateName').value.trim();
                 const description = document.getElementById('templateDescription').value.trim();
                 const includePlan = document.getElementById('savePlan').checked;
@@ -2797,17 +2297,13 @@ showQuickAddModal(type, startTime, endTime);
                     alert('Введите название шаблона');
                     return;
                 }
-                
                 if (!includePlan && !includeFact) {
                     alert('Выберите хотя бы один тип событий для сохранения');
                     return;
                 }
                 
                 try {
-                    const template = await templateManager.saveCurrentWeekAsTemplate(
-                        name, description, includePlan, includeFact
-                    );
-                    
+                    const template = await templateManager.saveCurrentWeekAsTemplate(name, description, includePlan, includeFact);
                     if (template) {
                         alert(`Шаблон "${name}" сохранен! Событий в шаблоне: ${template.events.length}`);
                         templateManager.updateTemplatesList();
@@ -2821,15 +2317,12 @@ showQuickAddModal(type, startTime, endTime);
         }
     }
     
-    // Добавьте эту функцию отдельно
     async function addQuickEvent(categoryName, durationMinutes, description) {
-        // Находим категорию
-        const category = state.categories.find(c => 
-            c.name.toLowerCase() === categoryName.toLowerCase());
+        // Находим категорию (нечувствительно к регистру)
+        const category = state.categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
         
         if (!category) {
-            alert(`Категория
- "${categoryName}" не найдена. Создайте её сначала.`);
+            alert(`Категория "${categoryName}" не найдена. Пожалуйста, убедитесь, что она существует в списке категорий.`);
             return;
         }
         
@@ -2874,7 +2367,6 @@ showQuickAddModal(type, startTime, endTime);
             newYear--;
             newWeek = 52;
         }
-        
         elements.weekPicker.value = `${newYear}-W${newWeek.toString().padStart(2, '0')}`;
         updateWeek();
     }
@@ -2888,7 +2380,6 @@ showQuickAddModal(type, startTime, endTime);
             newYear++;
             newWeek = 1;
         }
-        
         elements.weekPicker.value = `${newYear}-W${newWeek.toString().padStart(2, '0')}`;
         updateWeek();
     }
@@ -2899,7 +2390,6 @@ showQuickAddModal(type, startTime, endTime);
         updateBalanceWheel();
     }
     
-     
     function showCategoryModal() {
         initColorPicker();
         const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
@@ -2917,7 +2407,6 @@ showQuickAddModal(type, startTime, endTime);
         if (!container) return;
         
         container.innerHTML = '';
-        
         colors.forEach(color => {
             const colorBtn = document.createElement('button');
             colorBtn.type = 'button';
@@ -2932,26 +2421,20 @@ showQuickAddModal(type, startTime, endTime);
             colorBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 document.getElementById('selectedColor').value = color;
-                
                 container.querySelectorAll('button').forEach(btn => {
                     btn.style.border = '2px solid #fff';
                 });
-                
                 this.style.border = '2px solid #333';
             });
-            
             container.appendChild(colorBtn);
         });
         
         document.getElementById('selectedColor').value = colors[0];
-        if (container.firstChild) {
-            container.firstChild.style.border = '2px solid #333';
-        }
+        if (container.firstChild) container.firstChild.style.border = '2px solid #333';
     }
     
     function createCategory(event) {
         event.preventDefault();
-        
         const name = document.getElementById('categoryName').value.trim();
         const color = document.getElementById('selectedColor').value;
         const description = document.getElementById('categoryDescription').value.trim();
@@ -2991,7 +2474,6 @@ showQuickAddModal(type, startTime, endTime);
             const [day, time, cellType] = cellId.split('-');
             
             if (cellType === type) {
-                // Создаем событие
                 const weekStart = getWeekStartDate();
                 const eventDate = new Date(weekStart);
                 eventDate.setDate(weekStart.getDate() + parseInt(day));
@@ -3005,7 +2487,6 @@ showQuickAddModal(type, startTime, endTime);
                 
                 const eventId = `${cellId}-${Date.now()}`;
                 
-                // Добавляем или обновляем событие
                 const existingIndex = state.events.findIndex(e => 
                     e.type === type && 
                     new Date(e.start_time).getHours() === hours &&
@@ -3028,13 +2509,10 @@ showQuickAddModal(type, startTime, endTime);
                     state.events.push(eventData);
                 }
                 
-                // Обновляем отображение
                 const cell = document.querySelector(`[data-id="${cellId}"]`);
                 if (cell) {
-                    // Очищаем существующие события в ячейке
                     cell.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
                     
-                    // Добавляем новое событие
                     const eventDiv = document.createElement('div');
                     eventDiv.className = type === 'plan' ? 'plan-event' : 'fact-event';
                     eventDiv.textContent = category.name;
@@ -3054,8 +2532,6 @@ showQuickAddModal(type, startTime, endTime);
     function bulkClear() {
         state.selectedCells.forEach(cellId => {
             const [day, time, type] = cellId.split('-');
-            
-            // Удаляем соответствующие события
             const weekStart = getWeekStartDate();
             const eventDate = new Date(weekStart);
             eventDate.setDate(weekStart.getDate() + parseInt(day));
@@ -3064,7 +2540,6 @@ showQuickAddModal(type, startTime, endTime);
             
             state.events = state.events.filter(event => {
                 if (event.type !== type) return true;
-                
                 const eventTime = new Date(event.start_time);
                 return !(
                     eventTime.getDate() === eventDate.getDate() &&
@@ -3073,7 +2548,6 @@ showQuickAddModal(type, startTime, endTime);
                 );
             });
             
-            // Очищаем ячейку
             const cell = document.querySelector(`[data-id="${cellId}"]`);
             if (cell) {
                 cell.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
@@ -3097,16 +2571,14 @@ showQuickAddModal(type, startTime, endTime);
         const adjustedDay = currentDay === 0 ? 6 : currentDay - 1;
         
         if (confirm('Очистить все события на сегодня?')) {
-            // Очищаем события текущего дня
             const todayStr = today.toISOString().split('T')[0];
+            
             state.events = state.events.filter(event => {
                 const eventDate = event.start_time.split('T')[0];
                 return eventDate !== todayStr;
             });
             
-            // Очищаем ячейки текущего дня
             const rows = elements.scheduleBody.querySelectorAll('tr');
-
             rows.forEach(row => {
                 const dayCell = row.children[adjustedDay + 1];
                 if (dayCell) {
@@ -3127,19 +2599,14 @@ showQuickAddModal(type, startTime, endTime);
         
         if (confirm('Скопировать сегодняшние события на завтра?')) {
             const todayStr = today.toISOString().split('T')[0];
-            const tomorrowStr = tomorrow.toISOString().split('T')[0];
-            
-            // Находим события сегодняшнего дня
             const todayEvents = state.events.filter(event => {
                 const eventDate = event.start_time.split('T')[0];
                 return eventDate === todayStr;
             });
             
-            // Копируем события на завтра
             todayEvents.forEach(event => {
                 const startTime = new Date(event.start_time);
                 const endTime = new Date(event.end_time);
-                
                 startTime.setDate(startTime.getDate() + 1);
                 endTime.setDate(endTime.getDate() + 1);
                 
@@ -3149,14 +2616,12 @@ showQuickAddModal(type, startTime, endTime);
                     start_time: startTime.toISOString(),
                     end_time: endTime.toISOString()
                 };
-                
                 state.events.push(newEvent);
             });
             
             renderEvents();
             updateBalanceWheel();
             saveData();
-            
             alert('События скопированы на завтра!');
         }
     }
@@ -3165,7 +2630,7 @@ showQuickAddModal(type, startTime, endTime);
         alert('Статистика будет доступна в следующих версиях приложения');
     }
     
-    // Инициализация текущей недели
+    // Запуск первой недели
     setCurrentWeek();
 });
 </script>
