@@ -397,7 +397,8 @@
     /* Индикатор времени */
     .current-time-indicator {
         position: absolute;
-        left: 0;
+   
+     left: 0;
         right: 0;
         height: 2px;
         background-color: #ff9a9e; /* Розово-красный */
@@ -649,7 +650,8 @@
                     <canvas id="balanceWheel" width="250" height="250"></canvas>
                 </div>
                 <div class="wheel-legend" id="wheelLegend">
-                    <!-- Легенда будет создана JavaScript -->
+           
+         <!-- Легенда будет создана JavaScript -->
                 </div>
             </div>
             
@@ -682,12 +684,12 @@
 <!-- Модальные окна -->
 <!-- В модальном окне добавления события -->
 <div class="btn-group w-100" role="group">
-    <input type="radio" class="btn-check" name="eventType" id="typePlan" value="plan" checked>
+    <input type="radio" class="btn-check" name="eventType" id="modalTypePlan" value="plan" checked>
     <label class="btn btn-outline-success" for="typePlan" style="--bs-btn-color: #2d6a4f; --bs-btn-border-color: #a7d2cb; --bs-btn-hover-bg: rgba(167, 210, 203, 0.1);">
         План
     </label>
     
-    <input type="radio" class="btn-check" name="eventType" id="typeFact" value="fact">
+    <input type="radio" class="btn-check" name="eventType" id="modalTypeFact" value="fact">
     <label class="btn btn-outline-primary" for="typeFact" style="--bs-btn-color: #6d5a8a; --bs-btn-border-color: #cdb4db; --bs-btn-hover-bg: rgba(205, 180, 219, 0.1);">
         Факт
     </label>
@@ -842,7 +844,8 @@
                     
                     <div class="mb-3">
                         <label for="eventDescription" class="form-label">Описание (необязательно)</label>
-                        <textarea class="form-control" id="eventDescription" rows="2" placeholder="Дополнительные детали..."></textarea>
+                        <textarea class="form-control" id="eventDescription" rows="2" placeholder="Дополнительные
+ детали..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1027,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function parseTimeFromAPI(timeString) {
         // Преобразуем строку времени из API в Date
-        return new Date(timeString.replace(' ', 'T') + 'Z');
+        return new Date(timeString.replace(' ', 'T'));
     }  
 
     
@@ -1085,6 +1088,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Конвертируем в наш формат дней (0-понедельник)
                     let templateDay = dayOfWeek;
                     if (templateDay === 0) templateDay = 6; // Воскресенье
+
                     else templateDay -= 1; // Понедельник=0, Вторник=1 и т.д.
                     
                     const startTime = event.start_time.split('T')[1].substring(0, 5);
@@ -1322,6 +1326,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         state.templates = state.templates.filter(t => t.id != templateId);
                         this.saveToLocalStorage();
                         this.updateTemplatesList();
+
                         alert('Шаблон удален');
                     }
                 });
@@ -1442,7 +1447,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function init() {
         console.log('Начало инициализации...');
+        
         initSchedule();
+        initSelectionHandlers(); // ← ВАЖНО
+        
         initTimeSelects();
         await loadCategories();
         await loadEvents();
@@ -1450,15 +1458,12 @@ document.addEventListener('DOMContentLoaded', function() {
         initEventHandlers();
         initCurrentTimeIndicator();
         updateWeekRange();
-        setCurrentWeek(); // Устанавливаем текущую неделю при загрузке
-
-        console.log('Инициализация завершена');
-        console.log('Загружено событий:', state.events.length);
-        console.log('Загружено категорий:', state.categories.length);
-        
-        // Принудительно отобразите события для проверки
+        setCurrentWeek();
+    
         renderEvents();
     }
+
+
     
     // Раздел 1.1: Двухколоночная структура дня
     function initSchedule() {
@@ -1557,9 +1562,12 @@ document.addEventListener('DOMContentLoaded', function() {
         endTime.setMinutes(endTime.getMinutes() + 15);
         
         // Открываем форму с предзаполненным временем
-        openAddEventForm(type, {
+        // FIXED: replaced missing function
+showQuickAddModal(type, startTime, endTime);
+// openAddEventForm(type, {
             start: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
-            end: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`,
+            end: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2,
+ '0')}`,
             date: eventDate.toISOString().split('T')[0]
         });
     }
@@ -1808,7 +1816,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            const response = await fetch('/api/bulk-events', {
+            const response = await fetch('/api/bulk-events',
+ {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2073,7 +2082,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const endTimeSelect = document.getElementById('endTime');
         
         if (startTimeSelect) {
-            startTimeSelect.innerHTML = '';
+            startTimeSelect.innerHTML
+ = '';
             for (let hour = 0; hour < 24; hour++) {
                 for (let minute = 0; minute < 60; minute += config.slotMinutes) {
                     const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -2341,7 +2351,8 @@ document.addEventListener('DOMContentLoaded', function() {
         updateWheelLegend(data);
     }
     
-    function updateWheelLegend(data) {
+    function updateWheelLegend(data)
+ {
         if (!elements.wheelLegend) return;
         
         elements.wheelLegend.innerHTML = '';
@@ -2569,7 +2580,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            const startDate = new Date(eventData.start_time.replace(' ', 'T'));
+            const
+ startDate = new Date(eventData.start_time.replace(' ', 'T'));
             const endDate = new Date(eventData.end_time.replace(' ', 'T'));
             
             if (endDate <= startDate) {
@@ -2816,7 +2828,8 @@ document.addEventListener('DOMContentLoaded', function() {
             c.name.toLowerCase() === categoryName.toLowerCase());
         
         if (!category) {
-            alert(`Категория "${categoryName}" не найдена. Создайте её сначала.`);
+            alert(`Категория
+ "${categoryName}" не найдена. Создайте её сначала.`);
             return;
         }
         
@@ -3093,6 +3106,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Очищаем ячейки текущего дня
             const rows = elements.scheduleBody.querySelectorAll('tr');
+
             rows.forEach(row => {
                 const dayCell = row.children[adjustedDay + 1];
                 if (dayCell) {
