@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Регистрация - Time Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7 col-lg-6">
+        <div class="card fade-in">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <h2 class="fw-bold">Создание аккаунта</h2>
+                    <p class="text-muted">Зарегистрируйтесь для начала использования Time Tracker</p>
+                </div>
+                
+                <form method="POST" action="{{ url_for('auth.register') }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="username" class="form-label">
+                                <i class="bi bi-person-badge me-1"></i>Имя пользователя *
+                            </label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   placeholder="Придумайте логин" required minlength="3" maxlength="64">
+                            <div class="form-text">От 3 до 64 символов</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="telegram_id" class="form-label">
+                                <i class="bi bi-telegram me-1"></i>Telegram ID (необязательно)
+                            </label>
+                            <input type="text" class="form-control" id="telegram_id" name="telegram_id" 
+                                   placeholder="Ваш ID в Telegram" value="{{ request.args.get('telegram_id', '') }}">
+                            <div class="form-text">Нужен для работы с Telegram-ботом</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="password" class="form-label">
+                                <i class="bi bi-key me-1"></i>Пароль *
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   placeholder="Создайте пароль" required minlength="6">
+                            <div class="password-strength mt-1">
+                                <div class="progress" style="height: 4px;">
+                                    <div class="progress-bar" id="password-strength-bar" style="width: 0%"></div>
+                                </div>
+                                <small class="form-text">Не менее 6 символов</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="password_confirm" class="form-label">
+                                <i class="bi bi-key-fill me-1"></i>Подтверждение пароля *
+                            </label>
+                            <input type="password" class="form-control" id="password_confirm" name="password_confirm" 
+                                   placeholder="Повторите пароль" required>
+                            <div class="form-text" id="password-match-text"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="terms" name="terms" required>
+                            <label class="form-check-label" for="terms">
+                                Я соглашаюсь с <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">условиями использования</a>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg" id="register-btn">
+                            <i class="bi bi-person-plus me-2"></i>Создать аккаунт
+                        </button>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <p class="mb-0">Уже есть аккаунт?</p>
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-link">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>Войти в существующий
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6><i class="bi bi-info-circle me-2"></i>О регистрации:</h6>
+                <ul class="mb-0">
+                    <li>После регистрации вы автоматически войдете в систему</li>
+                    <li>Telegram ID можно добавить или изменить позже в профиле</li>
+                    <li>Все данные хранятся в защищенной базе данных PostgreSQL</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно с условиями -->
+<div class="modal fade" id="termsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Условия использования</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Time Tracker - система для учета времени, разработанная в рамках курсовой работы.</p>
+                <p><strong>Используя сервис, вы соглашаетесь:</strong></p>
+                <ul>
+                    <li>Использовать сервис только в законных целях</li>
+                    <li>Не нарушать права других пользователей</li>
+                    <li>Хранить свои учетные данные в безопасности</li>
+                    <li>Сервис предоставляется "как есть" для демонстрационных целей</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('password_confirm');
+    const strengthBar = document.getElementById('password-strength-bar');
+    const matchText = document.getElementById('password-match-text');
+    const registerBtn = document.getElementById('register-btn');
+    
+    // Проверка сложности пароля
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        let strength = 0;
+        
+        if (password.length >= 6) strength += 25;
+        if (/[A-Z]/.test(password)) strength += 25;
+        if (/[0-9]/.test(password)) strength += 25;
+        if (/[^A-Za-z0-9]/.test(password)) strength += 25;
+        
+        strengthBar.style.width = strength + '%';
+        
+        // Цвет индикатора
+        if (strength < 50) {
+            strengthBar.className = 'progress-bar bg-danger';
+        } else if (strength < 75) {
+            strengthBar.className = 'progress-bar bg-warning';
+        } else {
+            strengthBar.className = 'progress-bar bg-success';
+        }
+        
+        checkPasswordMatch();
+    });
+    
+    // Проверка совпадения паролей
+    confirmInput.addEventListener('input', checkPasswordMatch);
+    
+    function checkPasswordMatch() {
+        const password = passwordInput.value;
+        const confirm = confirmInput.value;
+        
+        if (!confirm) {
+            matchText.textContent = '';
+            matchText.className = 'form-text';
+            registerBtn.disabled = false;
+            return;
+        }
+        
+        if (password === confirm) {
+            matchText.textContent = '✓ Пароли совпадают';
+            matchText.className = 'form-text text-success';
+            registerBtn.disabled = false;
+        } else {
+            matchText.textContent = '✗ Пароли не совпадают';
+            matchText.className = 'form-text text-danger';
+            registerBtn.disabled = true;
+        }
+    }
+    
+    // Проверка заполнения Telegram ID из URL
+    const telegramIdInput = document.getElementById('telegram_id');
+    const urlParams = new URLSearchParams(window.location.search);
+    const telegramIdFromUrl = urlParams.get('telegram_id');
+    if (telegramIdFromUrl && !telegramIdInput.value) {
+        telegramIdInput.value = telegramIdFromUrl;
+    }
+});
+</script>
+{% endblock %}

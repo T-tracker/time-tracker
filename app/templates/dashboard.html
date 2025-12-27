@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет - Time Tracker{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Заголовок и приветствие -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="fw-bold mb-2">Добро пожаловать, {{ current_user.username }}!</h1>
+            <p class="text-muted mb-0">
+                <i class="bi bi-calendar-check me-1"></i>Сегодня: {{ now.strftime('%d.%m.%Y') }}
+                {% if current_user.telegram_id %}
+                    <span class="ms-3">
+                        <i class="bi bi-telegram me-1"></i>Telegram: {{ current_user.telegram_id }}
+                    </span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="dropdown">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-plus-circle me-1"></i>Быстрое действие
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('main.manage_events') }}"><i class="bi bi-plus-square me-2"></i>Новое событие</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.manage_categories') }}"><i class="bi bi-tag me-2"></i>Новая категория</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.manage_templates') }}"><i class="bi bi-card-checklist me-2"></i>Новый шаблон</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="bi bi-gear me-2"></i>Настройки</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статистика в карточках -->
+    <div class="row mb-4" id="stats-container">
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="stat-number">{{ stats.categories }}</div>
+                <div><i class="bi bi-tags me-1"></i>Категорий</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="stat-number">{{ stats.events_today }}</div>
+                <div><i class="bi bi-calendar-day me-1"></i>Сегодня</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="stat-number">{{ stats.total_events }}</div>
+                <div><i class="bi bi-clock-history me-1"></i>Всего</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="stat-number">{{ stats.templates }}</div>
+                <div><i class="bi bi-card-checklist me-1"></i>Шаблонов</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Основной контент в двух колонках -->
+    <div class="row">
+        <!-- Левая колонка: Последние события -->
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Последние события</h5>
+                    <a href="{{ url_for('main.manage_events') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus me-1"></i>Добавить
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_events %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Тип</th>
+                                        <th>Категория</th>
+                                        <th>Время</th>
+                                        <th>Длительность</th>
+                                        <th>Источник</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for event in recent_events %}
+                                    <tr>
+                                        <td>
+                                            <span class="event-type-badge {{ 'bg-primary' if event.type == 'plan' else 'bg-success' }}">
+                                                {% if event.type == 'plan' %}
+                                                    <i class="bi bi-calendar-plus me-1"></i>План
+                                                {% else %}
+                                                    <i class="bi bi-check-circle me-1"></i>Факт
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="category-color-dot" style="background-color: {{ event.category.color }};"></span>
+                                            {{ event.category.name }}
+                                        </td>
+                                        <td>
+                                            <div>{{ event.start_time.strftime('%H:%M') }}</div>
+                                            <small class="text-muted">{{ event.start_time.strftime('%d.%m') }}</small>
+                                        </td>
+                                        <td>
+                                            {% set duration = (event.end_time - event.start_time).seconds // 60 %}
+                                            {% if duration >= 60 %}
+                                                {{ (duration // 60) }}ч {{ duration % 60 }}м
+                                            {% else %}
+                                                {{ duration }}м
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if event.source == 'telegram' %}
+                                                <i class="bi bi-telegram text-primary" title="Добавлено через Telegram"></i>
+                                            {% else %}
+                                                <i class="bi bi-globe text-muted" title="Добавлено через веб"></i>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-clock display-1 text-muted mb-3"></i>
+                            <h5 class="text-muted">У вас еще нет событий</h5>
+                            <p class="text-muted mb-4">Начните отслеживать свое время прямо сейчас</p>
+                            <a href="{{ url_for('main.manage_events') }}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-2"></i>Создать первое событие
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-end">
+                    <small class="text-muted">
+                        Показано {{ recent_events|length }} из {{ stats.total_events }} событий
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Правая колонка: Категории и быстрые действия -->
+        <div class="col-lg-4">
+            <!-- Карточка категорий -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-tags me-2"></i>Ваши категории</h5>
+                    <span class="badge bg-primary rounded-pill">{{ categories|length }}</span>
+                </div>
+                <div class="card-body">
+                    {% if categories %}
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for category in categories %}
+                            <div class="category-badge" style="background-color: {{ category.color }}20; color: {{ category.color }}; border: 1px solid {{ category.color }};">
+                                <span class="category-color-dot" style="background-color: {{ category.color }};"></span>
+                                {{ category.name }}
+                                <small class="text-muted">({{ category.events|length }})</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="bi bi-tag display-6 text-muted mb-3"></i>
+                            <p class="text-muted mb-3">Создайте свою первую категорию</p>
+                            <a href="{{ url_for('main.manage_categories') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-plus me-1"></i>Создать категорию
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('main.manage_categories') }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-gear me-1"></i>Управление категориями
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Карточка быстрых действий -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Быстрые действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('main.manage_events') }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-2"></i>Новое событие
+                        </a>
+                        <a href="{{ url_for('main.manage_categories') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-tag me-2"></i>Новая категория
+                        </a>
+                        <a href="{{ url_for('main.profile') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-gear me-2"></i>Настройки профиля
+                        </a>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <small class="text-muted d-block mb-2">
+                            <i class="bi bi-info-circle me-1"></i>Используйте Telegram-бота для быстрого добавления событий
+                        </small>
+                        {% if current_user.telegram_id %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-telegram me-1"></i>Telegram подключен
+                            </span>
+                        {% else %}
+                            <a href="{{ url_for('main.profile') }}" class="badge bg-warning text-decoration-none">
+                                <i class="bi bi-telegram me-1"></i>Подключить Telegram
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Секция с графиком (заглушка для будущей реализации) -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Статистика за неделю</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center py-4">
+                        <i class="bi bi-bar-chart-line display-4 text-muted mb-3"></i>
+                        <h5 class="text-muted">Визуализация статистики</h5>
+                        <p class="text-muted">Графики и диаграммы будут добавлены в следующем обновлении</p>
+                        <div class="d-flex justify-content-center gap-3 mt-3">
+                            <div class="text-center">
+                                <div class="fs-4 fw-bold">{% if stats.events_today %}{{ stats.events_today }}{% else %}0{% endif %}</div>
+                                <small class="text-muted">Сегодня</small>
+                            </div>
+                            <div class="text-center">
+                                <div class="fs-4 fw-bold">{% if stats.total_events %}{{ stats.total_events }}{% else %}0{% endif %}</div>
+                                <small class="text-muted">Всего</small>
+                            </div>
+                            <div class="text-center">
+                                <div class="fs-4 fw-bold">{% if categories %}{{ categories|length }}{% else %}0{% endif %}</div>
+                                <small class="text-muted">Категорий</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автообновление статистики каждые 30 секунд
+    function updateStats() {
+        fetch('/api/my/stats')
+            .then(response => response.json())
+            .then(data => {
+                // Обновляем статистику на странице
+                document.querySelectorAll('.stat-number')[0].textContent = data.stats.categories;
+                document.querySelectorAll('.stat-number')[1].textContent = data.stats.events_today;
+                document.querySelectorAll('.stat-number')[2].textContent = data.stats.events_total;
+                // Обновляем счетчик в заголовке категорий
+                const categoryBadge = document.querySelector('.card-header .badge');
+                if (categoryBadge) {
+                    categoryBadge.textContent = data.stats.categories;
+                }
+            })
+            .catch(error => console.error('Ошибка обновления статистики:', error));
+    }
+    
+    // Запускаем обновление каждые 30 секунд
+    setInterval(updateStats, 30000);
+    
+    // Анимация при наведении на категории
+    const categoryBadges = document.querySelectorAll('.category-badge');
+    categoryBadges.forEach(badge => {
+        badge.style.transition = 'all 0.2s';
+        badge.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+        });
+        badge.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = 'none';
+        });
+    });
+});
+</script>
+{% endblock %}
