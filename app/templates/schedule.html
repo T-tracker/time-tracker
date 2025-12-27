@@ -137,7 +137,14 @@
         z-index: 70;
     }
 
-
+    .debug-event {
+    border: 2px solid red !important;
+    background-color: rgba(255, 0, 0, 0.1) !important;
+    }
+    
+    .debug-cell {
+        background-color: rgba(0, 255, 0, 0.1) !important;
+    }
     
     /* Уменьшенные ячейки */
     .time-slot-row {
@@ -2353,25 +2360,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Вспомогательные функции
     async function loadEvents() {
+        console.log('Загрузка событий...');
         try {
             const [year, week] = elements.weekPicker.value.split('-W');
+            console.log('Запрашиваемая неделя:', year, week);
+            
             const response = await fetch(`/api/events/week/${year}-W${week.padStart(2, '0')}`);
             
             if (response.ok) {
                 const data = await response.json();
+                console.log('Получены данные:', data);
+                
                 if (data.success) {
-                    state.events = data.events;
+                    state.events = data.events || [];
+                    console.log('Загружено событий:', state.events.length);
                 }
+            } else {
+                console.error('Ошибка ответа сервера:', response.status);
             }
         } catch (error) {
             console.error('Ошибка загрузки событий:', error);
         }
         
+        console.log('Всего событий в состоянии:', state.events.length);
         renderEvents();
         updateBalanceWheel();
     }
 
     async function saveEvent(eventData) {
+        console.log('Сохранение события:', eventData);
+        
         try {
             const startTime = roundToNearest15Minutes(
                 new Date(eventData.start_time), 
@@ -2382,6 +2400,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 'ceil'
             );
             
+            console.log('Округленное время:', { startTime, endTime });
+            
             eventData.start_time = formatTimeForAPI(startTime);
             eventData.end_time = formatTimeForAPI(endTime);
             
@@ -2391,7 +2411,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 createdAt: new Date().toISOString()
             };
             
+            console.log('Создано событие:', newEvent);
+            
             state.events.push(newEvent);
+            
+            // Отладочная информация
+            console.log('Событий после добавления:', state.events.length);
             
             renderEvents();
             updateBalanceWheel();
@@ -2438,9 +2463,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const planCellIndex = 1 + adjustedDay * 2;
                 const factCellIndex = planCellIndex + 1;
                 
+                const columnOffset = 1 + (adjustedDay * 2);
                 const targetCell = event.type === 'plan' ? 
-                    row.children[planCellIndex] : 
-                    row.children[factCellIndex];
+                    row.children[columnOffset] : // план
+                    row.children[columnOffset + 1]; // факт
                 
                 if (!targetCell) return;
                 
