@@ -1093,19 +1093,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/v1/categories');
             if (response.ok) {
                 const data = await response.json();
-                state.categories = data.categories || data;
+                state.categories = data;
+                updateCategorySelects();
+                updateCategoriesList();
             } else {
+                console.error('Ошибка загрузки категорий:', response.status);
                 loadDefaultCategories();
             }
         } catch (error) {
             console.error('Ошибка загрузки категорий:', error);
             loadDefaultCategories();
         }
-        
-        updateCategorySelects();
-        updateCategoriesList();
     }
-
+    
     function loadDefaultCategories() {
         state.categories = [
             { id: 1, name: 'Работа', color: '#f8b5d1', description: 'Рабочие задачи' },
@@ -1115,6 +1115,8 @@ document.addEventListener('DOMContentLoaded', function() {
             { id: 5, name: 'Семья', color: '#ffafcc', description: 'Время с семьей' },
             { id: 6, name: 'Хобби', color: '#e2d4f0', description: 'Личные увлечения' }
         ];
+        updateCategorySelects();
+        updateCategoriesList();
     }
     
     function updateCategorySelects() {
@@ -1132,79 +1134,6 @@ document.addEventListener('DOMContentLoaded', function() {
             elements.bulkCategorySelect.appendChild(option.cloneNode(true));
             elements.quickCategory.appendChild(option);
         });
-    }
-
-        function updateCategoriesList() {
-        elements.categoriesList.innerHTML = '';
-        
-        state.categories.forEach(category => {
-            const categoryDiv = document.createElement('div');
-            categoryDiv.className = 'category-item';
-            categoryDiv.style.borderLeftColor = category.color;
-            
-            categoryDiv.innerHTML = `
-                <div class="category-color" style="background-color: ${category.color}"></div>
-                <div class="category-info">
-                    <div class="category-name">${category.name}</div>
-                    ${category.description ? `<small class="text-muted">${category.description}</small>` : ''}
-                </div>
-                <div class="category-actions">
-                    <button class="btn btn-sm btn-outline-secondary edit-category-btn me-1" data-id="${category.id}">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger delete-category-btn" data-id="${category.id}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            `;
-            
-            elements.categoriesList.appendChild(categoryDiv);
-        });
-        
-        // Обработчики удаления категорий
-        document.querySelectorAll('.delete-category-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const categoryId = this.dataset.id;
-                const category = state.categories.find(c => c.id == categoryId);
-                
-                if (category) {
-                    document.getElementById('deleteMessage').textContent = 
-                        `Вы уверены, что хотите удалить категорию "${category.name}"? Все связанные события будут очищены.`;
-                    
-                    const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
-                    modal.show();
-                    
-                    document.getElementById('confirmDeleteBtn').onclick = function() {
-                        deleteCategory(categoryId);
-                        modal.hide();
-                    };
-                }
-            });
-        });
-    }
-    
-    function deleteCategory(categoryId) {
-        // Удаляем события этой категории
-        state.events = state.events.filter(event => event.category_id != categoryId);
-        
-        // Удаляем категорию
-        state.categories = state.categories.filter(c => c.id != categoryId);
-        
-        // Обновляем интерфейс
-        updateCategorySelects();
-        updateCategoriesList();
-        renderEvents();
-        updateBalanceWheel();
-        
-        // Очищаем ячейки с удаленной категорией
-        document.querySelectorAll('.plan-event, .fact-event').forEach(eventEl => {
-            if (eventEl.dataset.categoryId == categoryId) {
-                eventEl.remove();
-            }
-        });
-        
-        // Сохраняем в localStorage
-        saveData();
     }
 
     async function loadEvents() {
