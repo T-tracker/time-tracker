@@ -20,7 +20,6 @@ def telegram_auth():
     if not telegram_id:
         return jsonify({'error': 'telegram_id required'}), 400
     
-    # Ищем пользователя
     user = User.query.filter_by(telegram_id=telegram_id).first()
     
     if user:
