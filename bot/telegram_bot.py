@@ -378,5 +378,9 @@ def main():
     logger.info("...")
     application.run_polling()
 
-if __name__ == '__main__':
+def run():
+    """Функция для запуска бота извне"""
     main()
+
+if __name__ == '__main__':
+    run()  # Для локального запуска
