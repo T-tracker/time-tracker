@@ -1090,14 +1090,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadCategories() {
         try {
+            console.log('Загрузка категорий...');
             const response = await fetch('/api/v1/categories');
+            
             if (response.ok) {
                 const data = await response.json();
                 state.categories = data;
-                updateCategorySelects();
-                updateCategoriesList();
+                updateCategorySelect();
+                console.log('Категорий загружено:', state.categories.length);
             } else {
-                console.error('Ошибка загрузки категорий:', response.status);
+                console.warn('Ошибка загрузки категорий:', response.status);
                 loadDefaultCategories();
             }
         } catch (error) {
@@ -1105,34 +1107,28 @@ document.addEventListener('DOMContentLoaded', function() {
             loadDefaultCategories();
         }
     }
-    
+
     function loadDefaultCategories() {
         state.categories = [
-            { id: 1, name: 'Работа', color: '#f8b5d1', description: 'Рабочие задачи' },
-            { id: 2, name: 'Учёба', color: '#cdb4db', description: 'Обучение и образование' },
-            { id: 3, name: 'Спорт', color: '#a7d2cb', description: 'Физическая активность' },
-            { id: 4, name: 'Отдых', color: '#ffd6e7', description: 'Время для отдыха' },
-            { id: 5, name: 'Семья', color: '#ffafcc', description: 'Время с семьей' },
-            { id: 6, name: 'Хобби', color: '#e2d4f0', description: 'Личные увлечения' }
+            { id: 1, name: 'Работа', color: '#f8b5d1' },
+            { id: 2, name: 'Учёба', color: '#cdb4db' },
+            { id: 3, name: 'Спорт', color: '#a7d2cb' },
+            { id: 4, name: 'Отдых', color: '#ffd6e7' }
         ];
-        updateCategorySelects();
-        updateCategoriesList();
+        updateCategorySelect();
     }
-    
-    function updateCategorySelects() {
-        // Основной селект категорий
+
+    function updateCategorySelect() {
+        if (!elements.categorySelect) return;
+        
         elements.categorySelect.innerHTML = '<option value="">Выберите категорию</option>';
-        elements.bulkCategorySelect.innerHTML = '<option value="">Выберите категорию</option>';
-        elements.quickCategory.innerHTML = '<option value="">Выберите категорию</option>';
         
         state.categories.forEach(category => {
             const option = document.createElement('option');
             option.value = category.id;
             option.textContent = category.name;
             option.style.color = category.color;
-            elements.categorySelect.appendChild(option.cloneNode(true));
-            elements.bulkCategorySelect.appendChild(option.cloneNode(true));
-            elements.quickCategory.appendChild(option);
+            elements.categorySelect.appendChild(option);
         });
     }
 
