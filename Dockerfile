@@ -17,3 +17,5 @@ RUN pip install --no-cache-dir -r bot_requirements.txt
 COPY . .
 
 CMD ["gunicorn", "run:app"]
+# Временное изменение - запусти диагностику
+CMD python debug_startup.py
