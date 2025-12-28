@@ -10,7 +10,7 @@ class TimeTrackerAPI:
     """Клиент для работы с API веб-приложения TimeTracker"""
     
     def __init__(self, base_url: str = None):
-        self.base_url = base_url or 'https://time-tracker-integratsiia-dlia-bota.onrender.com'
+        self.base_url = base_url or 'http://localhost:10000'
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
