@@ -1,3 +1,8 @@
+# В самое начало run.py добавь:
+print("=" * 50)
+print("🚨 RUN.PY IS EXECUTING!")
+print("=" * 50)
+
 import os
 import sys
 import threading
