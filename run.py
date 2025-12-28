@@ -15,6 +15,8 @@ def create_web_app():
     try:
         from app import create_app
         app = create_app()
+
+        from datetime import datetime
         
         # Простой health-check
         @app.route('/health')
