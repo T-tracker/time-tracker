@@ -1,36 +1,17 @@
-# В самое начало run.py добавь:
+# run.py - ТОЛЬКО веб, без бота!
 print("=" * 50)
-print("🚨 RUN.PY IS EXECUTING!")
+print("🚨 RUN.PY IS EXECUTING - WEB ONLY!")
 print("=" * 50)
 
 import os
 import sys
-import threading
-import time
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def run_bot():
-    """Запуск Telegram бота"""
-    try:
-        logger.info("🤖 Запускаю Telegram бота...")
-        
-        # Добавляем путь для импорта
-        sys.path.insert(0, '/app')
-        
-        # Импортируем и запускаем бота
-        from bot.telegram_bot import main
-        main()
-        
-    except Exception as e:
-        logger.error(f"❌ Ошибка запуска бота: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
-
-def run_web():
-    """Запуск веб-приложения"""
+def create_web_app():
+    """Создание веб-приложения"""
     try:
         from app import create_app
         app = create_app()
@@ -40,14 +21,14 @@ def run_web():
         def health():
             return {
                 'status': 'healthy',
-                'bot_running': 'bot_thread' in globals() and bot_thread.is_alive()
+                'service': 'web_only'
             }
         
         logger.info("🌐 Веб-приложение создано")
         return app
         
     except Exception as e:
-        logger.error(f"❌ Ошибка запуска веб-приложения: {e}")
+        logger.error(f"❌ Ошибка создания веб-приложения: {e}")
         # Создаём минимальное приложение для ошибки
         from flask import Flask
         app = Flask(__name__)
@@ -58,33 +39,14 @@ def run_web():
         
         return app
 
+# Создаём приложение для gunicorn
+app = create_web_app()
+
 if __name__ == '__main__':
-    logger.info("🚀 Запускаю систему Time Tracker...")
+    logger.info("🚀 Запускаю ТОЛЬКО веб-приложение...")
     
-    # Проверяем токен бота
-    if os.environ.get('BOT_TOKEN'):
-        logger.info("✅ BOT_TOKEN найден")
-        
-        # Запускаем бота в отдельном потоке
-        global bot_thread
-        bot_thread = threading.Thread(target=run_bot, daemon=True)
-        bot_thread.start()
-        
-        # Даём боту время на запуск
-        time.sleep(3)
-        
-        if bot_thread.is_alive():
-            logger.info("✅ Telegram бот запущен")
-        else:
-            logger.warning("⚠️ Поток бота не запустился")
-    else:
-        logger.warning("⚠️ BOT_TOKEN не найден, бот не запущен")
+    # НЕ запускаем бота здесь!
+    logger.info("ℹ️ Telegram бот запускается через start_bot.py")
     
     # Запускаем веб-приложение
-    app = run_web()
-    
-    # Для локального запуска
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
-else:
-    # Для gunicorn в Render
-    app = run_web()
