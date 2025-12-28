@@ -185,6 +185,3 @@ def main():
         print(f"\n❌ КРИТИЧЕСКАЯ ОШИБКА: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-
-#if __name__ == '__main__':
-  #  main()
