@@ -16,13 +16,8 @@ def create_app():
     
     # Устанавливаем login view
     login_manager.login_view = 'auth.login'
-
-    with app.app_context():
-        # Эта команда создаст все таблицы, определенные в models.py, если они не существуют
-        db.create_all()
-        print(" * База данных проверена, таблицы готовы к работе.")
     
-    # Регистрация blueprints (ПЕРЕМЕЩЕНО ВВЕРХ)
+    # Регистрация blueprints
     from app.routes.main_routes import main_bp
     from app.routes.auth_routes import auth_bp
     from app.routes.api_routes import api_bp
@@ -34,55 +29,62 @@ def create_app():
     app.register_blueprint(web_pages_bp)  # ← Это даст /schedule
     app.register_blueprint(schedule_api_bp, url_prefix='/api/v1')
     
-    # КОСТЫЛЬ: Патчим модель Category перед её использованием
+    # ВСЁ, что связано с БД, делаем в ОДНОМ app_context
     with app.app_context():
-        from app.models import Category
-        
-        # Создаём "фейковое" свойство description, которое не запрашивает БД
-        class PatchedCategory(Category):
-            @property
-            def description(self):
-                return ""  # Всегда возвращаем пустую строку
-            
-            @description.setter
-            def description(self, value):
-                pass  # Игнорируем установку значения
-        
-        # Заменяем оригинальный класс на патченный
-        import sys
-        sys.modules['app.models'].Category = PatchedCategory
-        
-        # Переимпортируем, чтобы другие модули использовали патченную версию
-        from app import models
-        models.Category = PatchedCategory
-    
-        # Импортируем модели и настраиваем user_loader
-        from app.models import User
-        
-        @login_manager.user_loader
-        def load_user(user_id):
-            return User.query.get(int(user_id))
-        
-        # КОСТЫЛЬ 2: Пытаемся добавить колонку, если её нет
         try:
-            # Проверяем существование колонки description
-            result = db.session.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name='categories' AND column_name='description';"
-            ).fetchone()
+            # 1. Создаём таблицы (только один раз!)
+            db.create_all()
+            print("✅ База данных: таблицы созданы/проверены")
             
-            if not result:
-                print("⚠️ Column 'description' not found. Adding it...")
-                db.session.execute("ALTER TABLE categories ADD COLUMN description TEXT DEFAULT '';")
-                db.session.commit()
-                print("✅ Column 'description' added successfully")
-            else:
-                print("✅ Column 'description' already exists")
+            # 2. КОСТЫЛЬ: Патчим модель Category
+            from app.models import Category
+            
+            class PatchedCategory(Category):
+                @property
+                def description(self):
+                    return ""  # Всегда возвращаем пустую строку
+                
+                @description.setter
+                def description(self, value):
+                    pass  # Игнорируем установку значения
+            
+            # Заменяем оригинальный класс на патченный
+            import sys
+            sys.modules['app.models'].Category = PatchedCategory
+            
+            # Переимпортируем, чтобы другие модули использовали патченную версию
+            from app import models
+            models.Category = PatchedCategory
+            
+            # 3. Пытаемся добавить колонку, если её нет (можно удалить, если не нужно)
+            try:
+                # Проверяем существование колонки description
+                result = db.session.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name='categories' AND column_name='description';"
+                ).fetchone()
+                
+                if not result:
+                    print("⚠️ Column 'description' not found. Adding it...")
+                    db.session.execute("ALTER TABLE categories ADD COLUMN description TEXT DEFAULT '';")
+                    db.session.commit()
+                    print("✅ Column 'description' added successfully")
+                else:
+                    print("✅ Column 'description' already exists")
+                    
+            except Exception as e:
+                print(f"⚠️ Could not check/add column: {e}")
+                # Игнорируем ошибку - костыль выше всё равно отработает
+            
+            # 4. Настраиваем user_loader
+            from app.models import User
+            
+            @login_manager.user_loader
+            def load_user(user_id):
+                return User.query.get(int(user_id))
                 
         except Exception as e:
-            print(f"⚠️ Could not check/add column: {e}")
-            # Игнорируем ошибку - костыль выше всё равно отработает
-        
-        db.create_all()
+            print(f"❌ Ошибка при инициализации БД: {e}")
+            print("⚠️ Приложение запускается без полной функциональности БД")
     
     return app
