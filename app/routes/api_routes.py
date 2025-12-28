@@ -33,10 +33,11 @@ def telegram_auth():
         }), 200
     else:
         # Новый пользователь - нужно зарегистрироваться через веб
+        # ИСПРАВЬТЕ URL НА ВАШ ТЕКУЩИЙ:
         return jsonify({
             'status': 'needs_registration',
             'message': 'Please complete registration via web interface first',
-            'registration_url': f'https://time-tracker-z6co.onrender.com/register?telegram_id={telegram_id}'
+            'registration_url': f'https://time-tracker-18-18.onrender.com/register?telegram_id={telegram_id}'
         }), 404
 
 @api_bp.route('/telegram/categories', methods=['GET'])
