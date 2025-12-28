@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -9,13 +9,14 @@ from telegram.ext import (
     MessageHandler,
     filters,
     ContextTypes,
-    CallbackContext
+    CallbackContext,
+    CallbackQueryHandler
 )
-from collections import defaultdict
 
 from bot.config import BOT_TOKEN
 from bot.states import state_manager
 from bot.utils import round_to_next_15, calculate_15min_slots
+from bot.api_client import api_client  # Новый импорт
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -23,372 +24,252 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Категории по умолчанию
-DEFAULT_CATEGORIES = [
-    "💼 Работа",
-    "📚 Учёба", 
-    "🏃 Спорт",
-    "🎮 Отдых",
-    "🍽️ Еда",
-    "🚌 Транспорт",
-    "⏹️ Остановить всё"
-]
-
-# Хранилище завершённых активностей (временное, до подключения бэкенда)
-activity_history = defaultdict(list)  # user_id -> list of activities
-
-def get_categories_keyboard():
-    keyboard = [DEFAULT_CATEGORIES[i:i+2] for i in range(0, len(DEFAULT_CATEGORIES), 2)]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
-
-async def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start с авторизацией"""
     user = update.effective_user
+    telegram_id = user.id
+    
+    # Проверяем авторизацию
+    state = state_manager.get_state(telegram_id)
+    
+    if not state.api_user_data:
+        # Пытаемся авторизоваться
+        success, user_data = api_client.authenticate_telegram_user(
+            telegram_id=telegram_id,
+            username=user.username or user.first_name
+        )
+        
+        if not success:
+            if 'needs_registration' in user_data:
+                # Пользователь не зарегистрирован в веб-приложении
+                registration_url = user_data.get('registration_url', 'https://time-tracker-z6co.onrender.com/register')
+                await update.message.reply_text(
+                    f"👋 Привет, {user.first_name}!\n\n"
+                    f"📝 *Требуется регистрация в веб-приложении*\n"
+                    f"Для использования бота нужно:\n"
+                    f"1. Зарегистрироваться здесь: {registration_url}\n"
+                    f"2. В профиле указать Telegram ID: `{telegram_id}`\n"
+                    f"3. Создать хотя бы одну категорию\n\n"
+                    f"После этого возвращайся в бот! ✅",
+                    parse_mode='Markdown',
+                    reply_markup=ReplyKeyboardRemove()
+                )
+                return
+            else:
+                # Ошибка подключения
+                await update.message.reply_text(
+                    "⚠️ *Ошибка подключения*\n"
+                    "Не могу соединиться с сервером. Попробуйте позже.",
+                    parse_mode='Markdown'
+                )
+                return
+        
+        # Сохраняем данные пользователя
+        state_manager.update_user_data(telegram_id, user_data)
+        state = state_manager.get_state(telegram_id)  # Обновляем state
+        
+        # Загружаем категории пользователя
+        if user_data.get('has_categories'):
+            categories = api_client.get_user_categories(state.user_id)
+            state_manager.update_categories(telegram_id, categories)
+    
+    # Приветствие после успешной авторизации
+    await send_welcome_message(update, state)
+
+async def send_welcome_message(update: Update, state):
+    """Отправка приветственного сообщения"""
+    user = update.effective_user
+    
+    # Получаем актуальные категории
+    categories = api_client.get_user_categories(state.user_id)
+    state_manager.update_categories(user.id, categories)
+    
+    if not categories:
+        # У пользователя нет категорий
+        await update.message.reply_text(
+            f"👋 Добро пожаловать, {user.first_name}!\n\n"
+            f"📝 *Создайте категории в веб-приложении*\n"
+            f"Для использования бота нужно:\n"
+            f"1. Зайдите в веб-приложение\n"
+            f"2. Создайте категории в разделе 'Категории'\n"
+            f"3. Вернитесь в бот и нажмите /start\n\n"
+            f"📲 *Бот будет:*\n"
+            f"• Отслеживать время с округлением до 15 мин\n"
+            f"• Заполнять колонку 'Факт' в расписании\n"
+            f"• Сохранять все данные в вашем аккаунте",
+            parse_mode='Markdown',
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return
+    
+    # Формируем клавиатуру с категориями пользователя
+    keyboard = get_categories_keyboard(state)
+    
     await update.message.reply_text(
-        f"Привет, {user.first_name}! 👋\n\n"
-        "📌 **Доступные команды:**\n"
-        "/start - это сообщение\n"
-        "/status - текущая активность\n"
-        "/stats - статистика за сегодня\n"
-        "/export - экспорт всех активностей\n"
-        "/cancel - остановить всё\n\n"
-        "📱 **Как использовать:**\n"
-        "1. Выбери категорию - начнётся отсчёт\n"
-        "2. Когда закончишь - выбери новую\n"
-        "3. Всё округляется до 15 минут\n\n"
-        "⏰ **Напоминания:**\n"
-        "• Бот предупредит, если активность > 4 часов\n"
-        "• Начало в следующий 15-минутный слот",
+        f"👋 *С возвращением, {user.first_name}!*\n\n"
+        f"📊 *Ваши категории:* {len(categories)} шт.\n"
+        f"⏱️ *Округление:* до 15 минут\n"
+        f"💾 *Сохранение:* в вашем расписании\n\n"
+        f"📌 *Как использовать:*\n"
+        f"1. Выбери категорию - начнётся отсчёт\n"
+        f"2. Когда закончишь - выбери новую\n"
+        f"3. Время округляется автоматически\n\n"
+        f"📱 *Команды:*\n"
+        f"/status - текущая активность\n"
+        f"/stats - статистика\n"
+        f"/stop - остановить всё\n"
+        f"/categories - обновить категории",
         parse_mode='Markdown',
-        reply_markup=get_categories_keyboard()
+        reply_markup=keyboard
     )
 
-async def handle_category(update, context):
+def get_categories_keyboard(state) -> ReplyKeyboardMarkup:
+    """Создаёт клавиатуру с категориями пользователя"""
+    if not state.categories:
+        return ReplyKeyboardRemove()
+    
+    # Берем только названия категорий
+    category_names = [cat['name'] for cat in state.categories[:10]]  # Ограничиваем 10
+    
+    # Добавляем кнопку остановки
+    category_names.append("⏹️ Остановить всё")
+    
+    # Разбиваем на строки по 2 кнопки
+    keyboard = [category_names[i:i+2] for i in range(0, len(category_names), 2)]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик выбора категории"""
     user = update.effective_user
-    category = update.message.text
+    telegram_id = user.id
+    selected_category_name = update.message.text
     current_time = datetime.now()
     
-    state = state_manager.get_state(user.id)
-    state.last_update = current_time
+    state = state_manager.get_state(telegram_id)
     
-    # Остановка
-    if category == "⏹️ Остановить всё":
+    # Проверяем авторизацию
+    if not state.api_user_data:
+        await update.message.reply_text(
+            "⚠️ *Требуется авторизация*\n"
+            "Пожалуйста, нажмите /start",
+            parse_mode='Markdown'
+        )
+        return
+    
+    # Обработка кнопки "Остановить всё"
+    if selected_category_name == "⏹️ Остановить всё":
         if state.is_tracking:
-            await stop_current_activity(update, state, current_time)
+            await stop_current_activity(update, state, current_time, telegram_id)
         else:
             await update.message.reply_text("Сейчас ничего не отслеживается.")
         return
     
-    # Завершаем предыдущую активность если есть
-    if state.is_tracking and state.current_category:
-        await finish_previous_activity(update, state, current_time, user.id)
+    # Ищем выбранную категорию
+    selected_category = None
+    for cat in state.categories:
+        if cat['name'] == selected_category_name:
+            selected_category = cat
+            break
     
-    # Начинаем новую
+    if not selected_category:
+        await update.message.reply_text(
+            f"❌ *Категория не найдена*\n"
+            f"'{selected_category_name}' не найдена в вашем списке.\n"
+            f"Используйте /categories для обновления списка.",
+            parse_mode='Markdown'
+        )
+        return
+    
+    # Округляем время начала
     start_time = round_to_next_15(current_time)
-    state.start_activity(category, start_time)
     
-    # Уведомление о начале
+    # Если есть активная категория - завершаем её
+    if state.is_tracking and state.current_category_id:
+        await finish_previous_activity(update, state, current_time, telegram_id)
+    
+    # Начинаем новую активность
+    state.start_activity(
+        category_id=selected_category['id'],
+        category_name=selected_category['name'],
+        start_time=start_time
+    )
+    state_manager.save_states()
+    
+    # Уведомление пользователя
+    await send_activity_started_message(update, selected_category, start_time, current_time, context)
+
+async def send_activity_started_message(update: Update, category: dict, start_time: datetime, 
+                                       current_time: datetime, context: ContextTypes.DEFAULT_TYPE):
+    """Отправка сообщения о начале активности"""
     delay = (start_time - current_time).total_seconds()
     
     if delay > 60:  # Если начало через больше минуты
         message = (
-            f"⏳ **Запланировано:** {category}\n"
+            f"⏳ **Запланировано:** {category['name']}\n"
             f"🕐 Начнётся в: {start_time.strftime('%H:%M')}\n"
             f"⏱️ Через: {int(delay/60)} минут\n\n"
             f"_Продолжай свои дела до {start_time.strftime('%H:%M')}_"
         )
         await update.message.reply_text(message, parse_mode='Markdown')
-        
-        # Напоминание когда время наступит
-        reminder_time = start_time - timedelta(seconds=10)
-        context.job_queue.run_once(
-            send_reminder,
-            when=reminder_time,
-            data={'user_id': user.id, 'category': category, 'chat_id': update.effective_chat.id},
-            name=f"reminder_{user.id}"
-        )
     else:
         message = (
-            f"🚀 **Начата активность:** {category}\n"
-            f"🕐 Время: {start_time.strftime('%H:%M')}\n\n"
-            f"_Работай продуктивно! Когда закончишь - выбери новую категорию_"
+            f"🚀 **Начата активность:** {category['name']}\n"
+            f"🕐 Время: {start_time.strftime('%H:%M')}\n"
+            f"🎨 Цвет: {category.get('color', '#4361ee')}\n\n"
+            f"_Работай продуктивно!_"
         )
-        await update.message.reply_text(message, parse_mode='Markdown', reply_markup=get_categories_keyboard())
+        await update.message.reply_text(message, parse_mode='Markdown')
     
     # Напоминание через 4 часа
     warning_time = start_time + timedelta(hours=4)
     context.job_queue.run_once(
         send_long_activity_warning,
         when=warning_time,
-        data={'user_id': user.id, 'chat_id': update.effective_chat.id, 'category': category},
-        name=f"warning_{user.id}"
+        data={'telegram_id': update.effective_user.id, 
+              'chat_id': update.effective_chat.id, 
+              'category_name': category['name']},
+        name=f"warning_{update.effective_user.id}"
+    )
+
+async def finish_previous_activity(update: Update, state, end_time: datetime, telegram_id: int):
+    """Завершает предыдущую активность и сохраняет через API"""
+    if not state.start_time or not state.current_category_id:
+        return
+    
+    # Округляем время окончания
+    rounded_end = round_to_next_15(end_time)
+    
+    # Сохраняем событие через API
+    success, result = api_client.create_event(
+        user_id=state.user_id,
+        category_id=state.current_category_id,
+        start_time=state.start_time,
+        end_time=rounded_end,
+        event_type='fact',
+        description=f"Автоматически создано ботом"
     )
     
+    if success:
+        duration_minutes = int((rounded_end - state.start_time).total_seconds() / 60)
+        
+        await update.message.reply_text(
+            f"✅ **Завершено:** {state.current_category_name}\n"
+            f"⏱️ Длительность: {duration_minutes} мин.\n"
+            f"🕐 Время: {state.start_time.strftime('%H:%M')} - {rounded_end.strftime('%H:%M')}\n"
+            f"💾 Сохранено в ваше расписание\n\n"
+            f"_Хорошая работа!_ ✨",
+            parse_mode='Markdown'
+        )
+    else:
+        await update.message.reply_text(
+            f"⚠️ **Завершено:** {state.current_category_name}\n"
+            f"❌ *Ошибка сохранения:* {result.get('error', 'Unknown error')}\n"
+            f"Активность завершена, но не сохранена.",
+            parse_mode='Markdown'
+        )
+    
+    # Останавливаем активность в состоянии
+    state.stop_activity()
     state_manager.save_states()
 
-async def send_reminder(context):
-    """Напоминание о начале активности"""
-    job = context.job
-    user_id = job.data['user_id']
-    category = job.data['category']
-    chat_id = job.data['chat_id']
-    
-    state = state_manager.get_state(user_id)
-    if state.is_tracking and state.current_category == category:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"⏰ **Время начать:** {category}\n"
-                 f"Активность началась! Удачи! 🚀",
-            parse_mode='Markdown'
-        )
-
-async def send_long_activity_warning(context):
-    """Предупреждение о слишком длинной активности"""
-    job = context.job
-    user_id = job.data['user_id']
-    chat_id = job.data['chat_id']
-    category = job.data['category']
-    
-    state = state_manager.get_state(user_id)
-    if state.is_tracking and state.current_category == category:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"⚠️ **Внимание!**\n"
-                 f"Активность '{category}' длится уже 4 часа.\n"
-                 f"Может, стоит сделать перерыв? ☕",
-            parse_mode='Markdown'
-        )
-
-async def finish_previous_activity(update, state, end_time: datetime, user_id: int):
-    """Завершает предыдущую активность и сохраняет историю"""
-    if not state.start_time:
-        return
-    
-    rounded_end = round_to_next_15(end_time)
-    slots = calculate_15min_slots(state.start_time, rounded_end)
-    
-    # Сохраняем в историю
-    activity = {
-        'category': state.current_category,
-        'start': state.start_time,
-        'end': rounded_end,
-        'duration': (rounded_end - state.start_time).total_seconds() / 60,
-        'slots': len(slots)
-    }
-    activity_history[user_id].append(activity)
-    
-    # Уведомляем пользователя
-    duration_minutes = int((rounded_end - state.start_time).total_seconds() / 60)
-    slots_text = f"{len(slots)} × 15 мин." if len(slots) > 1 else "15 мин."
-    
-    await update.message.reply_text(
-        f"✅ **Завершено:** {state.current_category}\n"
-        f"⏱️ Длительность: {duration_minutes} мин. ({slots_text})\n"
-        f"🕐 Время: {state.start_time.strftime('%H:%M')} - {rounded_end.strftime('%H:%M')}\n\n"
-        f"_Хорошая работа!_ ✨",
-        parse_mode='Markdown'
-    )
-    
-    # Логируем
-    logger.info(f"User {user_id} finished {state.current_category}: {duration_minutes}min")
-    state.stop_activity()
-
-async def stop_current_activity(update, state, end_time: datetime):
-    await finish_previous_activity(update, state, end_time, update.effective_user.id)
-    await update.message.reply_text(
-        "🛑 Все активности остановлены.",
-        reply_markup=get_categories_keyboard()
-    )
-
-async def status(update, context):
-    """Текущий статус"""
-    user = update.effective_user
-    state = state_manager.get_state(user.id)
-    
-    if state.is_tracking:
-        current_time = datetime.now()
-        duration = (current_time - state.start_time).total_seconds() / 60
-        hours = int(duration // 60)
-        minutes = int(duration % 60)
-        
-        message = (
-            f"📊 **Текущий статус:**\n\n"
-            f"📌 Активность: {state.current_category}\n"
-            f"⏱️ Длительность: {hours}ч {minutes}м\n"
-            f"🕐 Начало: {state.start_time.strftime('%H:%M')}\n"
-            f"📅 Дата: {state.start_time.strftime('%d.%m.%Y')}\n\n"
-        )
-        
-        if duration > 240:  # 4 часа
-            message += "⚠️ *Активность длится более 4 часов!*\n"
-        
-        message += "_Используй кнопки ниже для управления_"
-    else:
-        today_activities = activity_history.get(user.id, [])
-        total_today = sum(a['duration'] for a in today_activities)
-        
-        message = (
-            f"📊 **Статус:** Отслеживание не активно\n"
-            f"📈 Сегодня: {int(total_today)} мин. ({len(today_activities)} активностей)\n\n"
-            f"Выбери категорию чтобы начать! 🚀"
-        )
-    
-    await update.message.reply_text(message, parse_mode='Markdown', reply_markup=get_categories_keyboard())
-
-async def stats_command(update, context):
-    """Статистика за сегодня"""
-    user = update.effective_user
-    today = datetime.now().date()
-    
-    # Фильтруем сегодняшние активности
-    today_activities = [
-        a for a in activity_history.get(user.id, [])
-        if a['start'].date() == today
-    ]
-    
-    if not today_activities:
-        await update.message.reply_text(
-            "📊 **Статистика за сегодня**\n"
-            "Активностей ещё нет. Начни отслеживать! 🚀",
-            parse_mode='Markdown'
-        )
-        return
-    
-    # Группируем по категориям
-    category_stats = {}
-    for activity in today_activities:
-        cat = activity['category']
-        if cat not in category_stats:
-            category_stats[cat] = 0
-        category_stats[cat] += activity['duration']
-    
-    # Формируем сообщение
-    total_minutes = sum(category_stats.values())
-    total_hours = total_minutes / 60
-    
-    message = f"📊 **Статистика за {today.strftime('%d.%m.%Y')}**\n\n"
-    message += f" Всего времени: {int(total_minutes)} мин. ({total_hours:.1f} ч)\n"
-    message += f" Активностей: {len(today_activities)}\n\n"
-    
-    # Сортируем по убыванию времени
-    sorted_categories = sorted(category_stats.items(), key=lambda x: x[1], reverse=True)
-    
-    for category, minutes in sorted_categories:
-        hours = minutes / 60
-        percentage = (minutes / total_minutes * 100) if total_minutes > 0 else 0
-        message += f"• {category}: {int(minutes)} мин. ({hours:.1f} ч) - {percentage:.1f}%\n"
-    
-    message += f"\n_Хорошая продуктивность! 💪_"
-    
-    await update.message.reply_text(message, parse_mode='Markdown')
-
-async def export_command(update, context):
-    """Экспорт всех сегодняшних активностей"""
-    user = update.effective_user
-    today = datetime.now().date()
-    
-    today_activities = [
-        a for a in activity_history.get(user.id, [])
-        if a['start'].date() == today
-    ]
-    
-    if not today_activities:
-        await update.message.reply_text(
-            "📋 **Экспорт активностей**\n"
-            "Сегодня активностей ещё нет.",
-            parse_mode='Markdown'
-        )
-        return
-    
-    # Формируем текстовый экспорт
-    export_text = f"📋 АКТИВНОСТИ ЗА {today.strftime('%d.%m.%Y')}\n"
-    export_text += "=" * 40 + "\n\n"
-    
-    for i, activity in enumerate(today_activities, 1):
-        start_time = activity['start'].strftime('%H:%M')
-        end_time = activity['end'].strftime('%H:%M')
-        duration = int(activity['duration'])
-        
-        export_text += f"{i}. {activity['category']}\n"
-        export_text += f"   Время: {start_time} - {end_time} ({duration} мин.)\n"
-        export_text += f"   Слотов: {activity['slots']} × 15 мин.\n"
-        
-        # Добавляем прогресс-бар
-        slots_visual = "█" * min(activity['slots'], 10)  # Максимум 10 блоков
-        if activity['slots'] > 10:
-            slots_visual += f" (+{activity['slots']-10})"
-        export_text += f"   [{slots_visual}]\n\n"
-    
-    # Итоги
-    total_minutes = sum(a['duration'] for a in today_activities)
-    total_slots = sum(a['slots'] for a in today_activities)
-    
-    export_text += "=" * 40 + "\n"
-    export_text += f"ИТОГО: {len(today_activities)} активностей, "
-    export_text += f"{total_minutes} мин., {total_slots} слотов\n"
-    
-    # Отправляем как отдельное сообщение с фиксированным шрифтом
-    await update.message.reply_text(
-        f"```\n{export_text}\n```",
-        parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardRemove()
-    )
-    
-    # Также отправляем краткую версию
-    await update.message.reply_text(
-        f"📤 Экспортировано {len(today_activities)} активностей\n"
-        f"⏱ Общее время: {int(total_minutes)} минут\n"
-        f"Дата: {today.strftime('%d.%m.%Y')}",
-        reply_markup=get_categories_keyboard()
-    )
-
-async def cancel(update, context):
-    """Отмена всех активностей"""
-    user = update.effective_user
-    state = state_manager.get_state(user.id)
-    
-    if state.is_tracking:
-        current_time = datetime.now()
-        await finish_previous_activity(update, state, current_time, user.id)
-    
-    # Очищаем все напоминания для этого пользователя
-    current_jobs = context.job_queue.get_jobs_by_name(f"reminder_{user.id}")
-    for job in current_jobs:
-        job.schedule_removal()
-    
-    current_warnings = context.job_queue.get_jobs_by_name(f"warning_{user.id}")
-    for job in current_warnings:
-        job.schedule_removal()
-    
-    await update.message.reply_text(
-        "🗑️ Все активности отменены, напоминания очищены.",
-        reply_markup=ReplyKeyboardRemove()
-    )
-
-def main():
-    # Очищаем просроченные состояния при старте
-    state_manager.cleanup_expired()
-    
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Регистрируем обработчики команд
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("status", status))
-    application.add_handler(CommandHandler("stats", stats_command))
-    application.add_handler(CommandHandler("export", export_command))
-    application.add_handler(CommandHandler("cancel", cancel))
-    
-    # Обработчик выбора категории
-    application.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        handle_category
-    ))
-    
-    logger.info("...")
-    application.run_polling()
-
-def run():
-    """Функция для запуска бота извне"""
-    main()
-
-if __name__ == '__main__':
-    run()  # Для локального запуска
+# Продолжение в следующем сообщении...
