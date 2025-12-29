@@ -1,10 +1,11 @@
-# requirements.txt - ОБЪЕДИНЕННЫЙ ФАЙЛ
 # Telegram bot
 python-telegram-bot==20.3
 httpx==0.24.1
 
 # Flask веб-приложение
 Flask==2.3.3
+# КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Ограничиваем версию Werkzeug для совместимости с Flask 2.3.3
+Werkzeug<3.0.0
 Flask-SQLAlchemy==3.0.5
 Flask-Login==0.6.2
 Flask-Migrate==4.0.4
