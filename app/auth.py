@@ -19,21 +19,23 @@ def login_required(f):
     return decorated_function
 
 def telegram_auth_required(f):
-    """Декоратор для проверки Telegram аутентификации (для API)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        telegram_id = request.headers.get('X-Telegram-ID') or request.args.get('telegram_id')
+        # Ищем заголовок, который шлет бот
+        telegram_id = request.headers.get('X-Telegram-User-ID') or \
+                      request.headers.get('X-Telegram-ID') or \
+                      request.args.get('telegram_id')
         
         if not telegram_id:
             return {'error': 'Telegram ID required'}, 401
         
         from app.models import User
-        user = User.query.filter_by(telegram_id=telegram_id).first()
+        # Обязательно приводим к строке, так как в БД это String
+        user = User.query.filter_by(telegram_id=str(telegram_id)).first()
         
         if not user:
-            return {'error': 'User not found. Please register first via web.'}, 404
+            return {'error': 'User not found'}, 404
         
-        # Привязываем пользователя к запросу
         request.current_user = user
         return f(*args, **kwargs)
     return decorated_function
