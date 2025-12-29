@@ -11,37 +11,21 @@ api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
 
 @api_bp.route('/telegram/auth', methods=['GET', 'POST'])
 def telegram_auth():
-    """Авторизация/регистрация через Telegram"""
-    
-    # 1. Проверка связи для бота
     if request.method == 'GET':
-        return jsonify({
-            'status': 'ok',
-            'message': 'API is reachable'
-        }), 200
+        return jsonify({'status': 'ok', 'message': 'API is reachable'}), 200
 
-    # 2. Логика авторизации (POST)
     data = request.json
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-        
     telegram_id = data.get('telegram_id')
-    username = data.get('username')
     
-    if not telegram_id:
-        return jsonify({'error': 'telegram_id required'}), 400
-    
-    # Ищем пользователя в базе
     user = User.query.filter_by(telegram_id=str(telegram_id)).first()
     
     if user:
-        # Проверяем, есть ли категории у ЭТОГО пользователя или у других "Маш"
+        # Проверяем категории у него или у "Maria"
         has_cats = Category.query.filter_by(user_id=user.id).count() > 0
         if not has_cats:
-            # Проверка на наличие категорий в других аккаунтах с тем же именем
-            other_masha = User.query.filter(User.username.ilike(user.username), User.id != user.id).first()
-            if other_masha:
-                has_cats = Category.query.filter_by(user_id=other_masha.id).count() > 0
+            maria = User.query.filter_by(username='Maria').first()
+            if maria:
+                has_cats = Category.query.filter_by(user_id=maria.id).count() > 0
 
         return jsonify({
             'status': 'authenticated',
@@ -51,64 +35,47 @@ def telegram_auth():
         }), 200
     else:
         reg_url = f'https://time-tracker-2-pfld.onrender.com/register?telegram_id={telegram_id}'
-        return jsonify({
-            'status': 'needs_registration',
-            'message': 'Please register via web first',
-            'registration_url': reg_url
-        }), 404
+        return jsonify({'status': 'needs_registration', 'registration_url': reg_url}), 404
 
 @api_bp.route('/telegram/categories', methods=['GET'])
 @telegram_auth_required
 def telegram_categories():
-    """Получить категории пользователя для Telegram-бота"""
     user = request.current_user
     
-    # 1. Пытаемся взять категории текущего аккаунта
+    # 1. Сначала честно ищем категории текущего пользователя
     categories = Category.query.filter_by(user_id=user.id).all()
     
-    # 2. МАГИЧЕСКИЙ ХАК: Если пусто, ищем категории у другого аккаунта с таким же именем
+    # 2. Если пусто — ИЩЕМ АККАУНТ "Maria"
     if not categories:
-        all_users_named_masha = User.query.filter(User.username.ilike(user.username)).all()
-        for masha in all_users_named_masha:
-            other_cats = Category.query.filter_by(user_id=masha.id).all()
-            if other_cats:
-                categories = other_cats
-                break
+        maria_user = User.query.filter_by(username='Maria').first()
+        if maria_user:
+            categories = Category.query.filter_by(user_id=maria_user.id).all()
 
-    # 3. Если всё еще пусто — показываем кнопки-заглушки (чтобы бот не молчал)
+    # 3. Если всё равно пусто — выводим диагностику на кнопки
     if not categories:
-        fake_categories = [
-            {'id': 999, 'name': '🆕 Создай категорию на сайте', 'color': '#FF0000'},
-            {'id': 998, 'name': '🔄 Обновить /start', 'color': '#00FF00'}
-        ]
         return jsonify({
-            'categories': fake_categories,
-            'quick_replies': [{'text': c['name'], 'callback_data': f"cat_{c['id']}"} for c in fake_categories]
+            'categories': [
+                {'id': 999, 'name': f'Я вижу тебя как: {user.username}', 'color': '#FF0000'},
+                {'id': 998, 'name': 'Нужна категория для Maria', 'color': '#00FF00'}
+            ],
+            'quick_replies': [
+                {'text': f'Имя в базе: {user.username}', 'callback_data': 'debug'},
+                {'text': '🔄 Проверить Maria', 'callback_data': 'cat_998'}
+            ]
         })
 
-    # Возвращаем найденные категории
     return jsonify({
-        'categories': [{
-            'id': cat.id,
-            'name': cat.name,
-            'color': cat.color
-        } for cat in categories],
-        'quick_replies': [
-            {'text': cat.name, 'callback_data': f'cat_{cat.id}'}
-            for cat in categories[:10]
-        ]
+        'categories': [{'id': cat.id, 'name': cat.name, 'color': cat.color} for cat in categories],
+        'quick_replies': [{'text': cat.name, 'callback_data': f'cat_{cat.id}'} for cat in categories[:10]]
     })
 
 @api_bp.route('/telegram/events', methods=['POST'])
 @telegram_auth_required
 def telegram_create_event():
-    """Создать событие из Telegram-бота"""
     user = request.current_user
     data = request.json
-    
     time_input = data.get('time', '')
     category_id = data.get('category_id')
-    event_type = data.get('type', 'fact')
     
     try:
         if '-' in time_input:
@@ -120,31 +87,20 @@ def telegram_create_event():
             start_time = datetime.utcnow()
             end_time = start_time + duration
     except ValueError as e:
-        return jsonify({'error': f'Invalid time format: {str(e)}'}), 400
+        return jsonify({'error': str(e)}), 400
     
-    # Проверяем категорию (разрешаем из любого аккаунта Маши для гибкости)
-    category = Category.query.get(category_id)
-    
-    if not category:
-        return jsonify({'error': 'Category not found'}), 404
-    
+    # Важно: разрешаем сохранять в категорию, даже если она от аккаунта Maria
     event = Event(
-        user_id=user.id, # Привязываем событие к ТЕКУЩЕМУ аккаунту бота
+        user_id=user.id,
         category_id=category_id,
-        type=event_type,
+        type=data.get('type', 'fact'),
         start_time=start_time,
         end_time=end_time,
         source='telegram'
     )
-    
     db.session.add(event)
     db.session.commit()
-    
-    return jsonify({
-        'status': 'success',
-        'event_id': event.id,
-        'message': f'Записано: {category.name}'
-    }), 201
+    return jsonify({'status': 'success', 'message': 'Записано!'}), 201
 
 @api_bp.route('/telegram/quick', methods=['POST'])
 @telegram_auth_required
@@ -152,59 +108,46 @@ def telegram_quick_event():
     user = request.current_user
     data = request.json
     code = data.get('code')
-    duration_minutes = data.get('duration', 90)
     
-    # Ищем категорию среди всех аккаунтов с этим именем
-    category = Category.query.join(User).filter(
-        User.username.ilike(user.username),
-        (Category.name.ilike(f'%{code}%')) | (db.func.lower(Category.name) == code.lower())
-    ).first()
+    # Ищем категорию у текущего юзера или у Maria
+    category = Category.query.filter(
+        (Category.user_id == user.id) | 
+        (Category.user_id == User.id) & (User.username == 'Maria')
+    ).filter(Category.name.ilike(f'%{code}%')).first()
     
     if not category:
-        return jsonify({'error': f'Category not found: {code}'}), 404
+        return jsonify({'error': 'Not found'}), 404
     
     start_time = datetime.utcnow()
-    end_time = start_time + timedelta(minutes=int(duration_minutes))
-    
     event = Event(
         user_id=user.id,
         category_id=category.id,
         type='fact',
         start_time=start_time,
-        end_time=end_time,
+        end_time=start_time + timedelta(minutes=90),
         source='telegram_quick'
     )
-    
     db.session.add(event)
     db.session.commit()
-    
-    return jsonify({
-        'status': 'success',
-        'category': category.name
-    })
+    return jsonify({'status': 'success', 'category': category.name})
 
 def parse_time(time_str):
     if ':' in time_str:
         hours, minutes = map(int, time_str.split(':'))
-        now = datetime.utcnow()
-        return now.replace(hour=hours % 24, minute=minutes, second=0, microsecond=0)
-    raise ValueError(f"Can't parse time: {time_str}")
+        return datetime.utcnow().replace(hour=hours % 24, minute=minutes, second=0, microsecond=0)
+    raise ValueError("Time format error")
 
 def parse_duration(duration_str):
-    duration_str = duration_str.lower()
     match = re.search(r'[\d.]+', duration_str)
     val = float(match.group()) if match else 60
-    
-    if 'час' in duration_str or 'hour' in duration_str:
-        return timedelta(hours=val)
-    return timedelta(minutes=val)
+    return timedelta(hours=val) if 'час' in duration_str.lower() else timedelta(minutes=val)
 
 @api_bp.route('/templates/<int:template_id>', methods=['DELETE'])
 @login_required
 def delete_template(template_id):
-    template = Template.query.filter_by(id=template_id, user_id=current_user.id).first()
-    if not template:
-        return jsonify({'status': 'error', 'message': 'Шаблон не найден'}), 404
-    db.session.delete(template)
-    db.session.commit()
-    return jsonify({'status': 'success', 'message': 'Шаблон удален'})
+    t = Template.query.filter_by(id=template_id, user_id=current_user.id).first()
+    if t:
+        db.session.delete(t)
+        db.session.commit()
+        return jsonify({'status': 'success'})
+    return jsonify({'status': 'error'}), 404
