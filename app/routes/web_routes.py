@@ -216,3 +216,7 @@ def get_week_events(week_id=None):
         'count': len(events_list),
         'events': events_list
     })
+
+@web_pages_bp.route('/health')
+def health_check():
+    return {"status": "ok"}, 200
