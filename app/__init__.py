@@ -1,8 +1,9 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from sqlalchemy import text
 
-# Создаем экземпляры ТОЛЬКО здесь
+# Создаем экземпляры
 db = SQLAlchemy()
 login_manager = LoginManager()
 
@@ -26,57 +27,29 @@ def create_app():
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(api_bp, url_prefix='/api/v1')
-    app.register_blueprint(web_pages_bp)  # ← Это даст /schedule
+    app.register_blueprint(web_pages_bp)
     app.register_blueprint(schedule_api_bp, url_prefix='/api/v1')
     
-    # ВСЁ, что связано с БД, делаем в ОДНОМ app_context
     with app.app_context():
         try:
-            # 1. Создаём таблицы (только один раз!)
+            # 1. Создаём таблицы
             db.create_all()
-            print("✅ База данных: таблицы созданы/проверены")
             
-            # 2. КОСТЫЛЬ: Патчим модель Category
-            from app.models import Category
-            
-            class PatchedCategory(Category):
-                @property
-                def description(self):
-                    return ""  # Всегда возвращаем пустую строку
-                
-                @description.setter
-                def description(self, value):
-                    pass  # Игнорируем установку значения
-            
-            # Заменяем оригинальный класс на патченный
-            import sys
-            sys.modules['app.models'].Category = PatchedCategory
-            
-            # Переимпортируем, чтобы другие модули использовали патченную версию
-            from app import models
-            models.Category = PatchedCategory
-            
-            # 3. Пытаемся добавить колонку, если её нет (можно удалить, если не нужно)
+            # 2. Пытаемся добавить колонку description, если её нет (исправленный SQL)
             try:
-                # Проверяем существование колонки description
-                result = db.session.execute(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_name='categories' AND column_name='description';"
-                ).fetchone()
+                # Используем text() для безопасности SQLAlchemy
+                check_sql = text("SELECT column_name FROM information_schema.columns WHERE table_name='categories' AND column_name='description'")
+                result = db.session.execute(check_sql).fetchone()
                 
                 if not result:
-                    print("⚠️ Column 'description' not found. Adding it...")
-                    db.session.execute("ALTER TABLE categories ADD COLUMN description TEXT DEFAULT '';")
+                    db.session.execute(text("ALTER TABLE categories ADD COLUMN description TEXT DEFAULT ''"))
                     db.session.commit()
-                    print("✅ Column 'description' added successfully")
-                else:
-                    print("✅ Column 'description' already exists")
-                    
+                    print("✅ Column 'description' added")
             except Exception as e:
-                print(f"⚠️ Could not check/add column: {e}")
-                # Игнорируем ошибку - костыль выше всё равно отработает
+                db.session.rollback()
+                print(f"ℹ️ Note: Description column check skipped: {e}")
             
-            # 4. Настраиваем user_loader
+            # 3. Настраиваем user_loader
             from app.models import User
             
             @login_manager.user_loader
@@ -85,6 +58,5 @@ def create_app():
                 
         except Exception as e:
             print(f"❌ Ошибка при инициализации БД: {e}")
-            print("⚠️ Приложение запускается без полной функциональности БД")
     
     return app
