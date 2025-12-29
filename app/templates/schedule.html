@@ -1712,3 +1712,47 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
+<script>
+// Основная логика отрисовки событий
+function renderEvents(events) {
+    // 1. Очищаем старые события из таблицы
+    document.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
+
+    events.forEach(event => {
+        const start = new Date(event.start_time);
+        const end = new Date(event.end_time);
+        
+        // Находим нужный день (индекс 0-6)
+        const dayIndex = (start.getDay() + 6) % 7; 
+        
+        // Вычисляем позицию (в пикселях или строках)
+        // Каждая строка = 15 минут = 25px (из твоего CSS)
+        const startMinutes = start.getHours() * 60 + start.getMinutes();
+        const endMinutes = end.getHours() * 60 + end.getMinutes();
+        const duration = endMinutes - startMinutes;
+
+        const top = (startMinutes / 15) * 25; 
+        const height = (duration / 15) * 25;
+
+        // Определяем колонку: План или Факт
+        const columnClass = event.type === 'plan' ? '.plan-column' : '.fact-column';
+        const dayColumns = document.querySelectorAll(`.day-column-index-${dayIndex} ${columnClass}`);
+        
+        // Создаем элемент события
+        const eventEl = document.createElement('div');
+        eventEl.className = event.type === 'plan' ? 'plan-event' : 'fact-event';
+        eventEl.style.top = `${top}px`;
+        eventEl.style.height = `${height}px`;
+        eventEl.style.backgroundColor = event.category_color + '44'; // 44 - прозрачность
+        eventEl.style.borderColor = event.category_color;
+        eventEl.innerHTML = `<strong>${event.category_name}</strong>`;
+        
+        // Добавляем в первую попавшуюся ячейку этого дня (позиционирование абсолютное)
+        const targetCell = document.querySelector(`#scheduleBody tr:first-child td:nth-child(${2 + dayIndex * 2 + (event.type === 'fact' ? 1 : 0)})`);
+        if (targetCell) {
+            targetCell.appendChild(eventEl);
+        }
+    });
+}
+</script>
