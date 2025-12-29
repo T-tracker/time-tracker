@@ -50,3 +50,4 @@ def telegram_auth_required(f):
         return f(*args, **kwargs)
         
     return decorated_function
+api_client = TimeTrackerAPI()
