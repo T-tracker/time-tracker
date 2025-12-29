@@ -31,12 +31,18 @@ def telegram_auth():
     if not telegram_id:
         return jsonify({'error': 'telegram_id required'}), 400
     
-    # Ищем пользователя
+    # Ищем пользователя в базе
     user = User.query.filter_by(telegram_id=str(telegram_id)).first()
     
     if user:
-        # Проверяем наличие категорий
+        # Проверяем, есть ли категории у ЭТОГО пользователя или у других "Маш"
         has_cats = Category.query.filter_by(user_id=user.id).count() > 0
+        if not has_cats:
+            # Проверка на наличие категорий в других аккаунтах с тем же именем
+            other_masha = User.query.filter(User.username.ilike(user.username), User.id != user.id).first()
+            if other_masha:
+                has_cats = Category.query.filter_by(user_id=other_masha.id).count() > 0
+
         return jsonify({
             'status': 'authenticated',
             'user_id': user.id,
@@ -56,26 +62,31 @@ def telegram_auth():
 def telegram_categories():
     """Получить категории пользователя для Telegram-бота"""
     user = request.current_user
+    
+    # 1. Пытаемся взять категории текущего аккаунта
     categories = Category.query.filter_by(user_id=user.id).all()
     
-    # --- МАГИЧЕСКИЙ ХАК ДЛЯ МАШИ ---
-    # Если в базе пусто, мы принудительно создаем кнопки, чтобы бот не занудствовал
+    # 2. МАГИЧЕСКИЙ ХАК: Если пусто, ищем категории у другого аккаунта с таким же именем
+    if not categories:
+        all_users_named_masha = User.query.filter(User.username.ilike(user.username)).all()
+        for masha in all_users_named_masha:
+            other_cats = Category.query.filter_by(user_id=masha.id).all()
+            if other_cats:
+                categories = other_cats
+                break
+
+    # 3. Если всё еще пусто — показываем кнопки-заглушки (чтобы бот не молчал)
     if not categories:
         fake_categories = [
-            {'id': 999, 'name': '🆕 Категорий пока нет', 'color': '#FF0000'},
-            {'id': 998, 'name': '🔄 Нажми /start ещё раз', 'color': '#00FF00'}
+            {'id': 999, 'name': '🆕 Создай категорию на сайте', 'color': '#FF0000'},
+            {'id': 998, 'name': '🔄 Обновить /start', 'color': '#00FF00'}
         ]
         return jsonify({
             'categories': fake_categories,
-            'quick_replies': [
-                {'text': cat['name'], 'callback_data': f"cat_{cat['id']}"}
-                for cat in fake_categories
-            ],
-            # Добавляем инфо, чтобы понять какой это аккаунт в базе
-            'debug_info': f"User ID: {user.id}, DB_TG_ID: {user.telegram_id}"
+            'quick_replies': [{'text': c['name'], 'callback_data': f"cat_{c['id']}"} for c in fake_categories]
         })
-    # --- КОНЕЦ ХАКА ---
 
+    # Возвращаем найденные категории
     return jsonify({
         'categories': [{
             'id': cat.id,
@@ -111,12 +122,14 @@ def telegram_create_event():
     except ValueError as e:
         return jsonify({'error': f'Invalid time format: {str(e)}'}), 400
     
-    category = Category.query.filter_by(id=category_id, user_id=user.id).first()
+    # Проверяем категорию (разрешаем из любого аккаунта Маши для гибкости)
+    category = Category.query.get(category_id)
+    
     if not category:
         return jsonify({'error': 'Category not found'}), 404
     
     event = Event(
-        user_id=user.id,
+        user_id=user.id, # Привязываем событие к ТЕКУЩЕМУ аккаунту бота
         category_id=category_id,
         type=event_type,
         start_time=start_time,
@@ -130,7 +143,7 @@ def telegram_create_event():
     return jsonify({
         'status': 'success',
         'event_id': event.id,
-        'message': f'Event added: {category.name}'
+        'message': f'Записано: {category.name}'
     }), 201
 
 @api_bp.route('/telegram/quick', methods=['POST'])
@@ -141,9 +154,10 @@ def telegram_quick_event():
     code = data.get('code')
     duration_minutes = data.get('duration', 90)
     
-    category = Category.query.filter_by(user_id=user.id).filter(
-        (Category.name.ilike(f'%{code}%')) |
-        (db.func.lower(Category.name) == code.lower())
+    # Ищем категорию среди всех аккаунтов с этим именем
+    category = Category.query.join(User).filter(
+        User.username.ilike(user.username),
+        (Category.name.ilike(f'%{code}%')) | (db.func.lower(Category.name) == code.lower())
     ).first()
     
     if not category:
