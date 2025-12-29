@@ -11,10 +11,9 @@ def telegram_auth():
     telegram_id = str(data.get('telegram_id'))
     username = data.get('username')
 
-    # Ищем пользователя по Telegram ID
+    # Ищем пользователя
     user = User.query.filter_by(telegram_id=telegram_id).first()
     
-    # Если не нашли по ID, ищем по username (привязка при первом входе)
     if not user and username:
         user = User.query.filter_by(username=username).first()
         if user:
@@ -22,14 +21,16 @@ def telegram_auth():
             db.session.commit()
 
     if user:
+        # Считаем категории напрямую через запрос к таблице Category
+        user_categories_count = Category.query.filter_by(user_id=user.id).count()
+        
         return jsonify({
             'status': 'authenticated', 
             'user_id': user.id, 
             'username': user.username,
-            'has_categories': len(user.categories) > 0
+            'has_categories': user_categories_count > 0
         }), 200
     
-    # Если пользователя нет вообще — отправляем на регистрацию
     return jsonify({
         'status': 'needs_registration', 
         'registration_url': 'https://time-tracker-2-pfld.onrender.com/register'
@@ -37,19 +38,16 @@ def telegram_auth():
 
 @api_bp.route('/telegram/categories', methods=['GET'])
 def telegram_categories():
-    # Получаем ID пользователя из заголовков запроса
     user_id = request.headers.get('X-User-Id')
     if not user_id:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    # Просто возвращаем то, что реально создал пользователь
+    # Ищем категории напрямую по user_id
+    user_categories = Category.query.filter_by(user_id=user_id).all()
+    
     categories = [
         {'id': c.id, 'name': c.name, 'color': c.color} 
-        for c in user.categories
+        for c in user_categories
     ]
     
     return jsonify({'categories': categories})
