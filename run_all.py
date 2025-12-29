@@ -2,92 +2,72 @@ import os
 import sys
 import subprocess
 import time
-import signal
 import logging
 import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Берем порт, который дает Render, или 10000 по умолчанию
+PORT = os.environ.get("PORT", "10000")
+
 def run_web():
     """Запуск веб-приложения через gunicorn"""
-    logger.info("🌐 Запуск веб-приложения...")
+    logger.info(f"🌐 Запуск веб-приложения на порту {PORT}...")
     
     cmd = [
         "gunicorn",
-        "run:app",  # Используем run.py как точку входа
-        "--bind", "0.0.0.0:10000",
+        "run:app",
+        "--bind", f"0.0.0.0:{PORT}", # Привязываемся к динамическому порту
         "--workers", "1",
         "--timeout", "120",
         "--access-logfile", "-",
         "--error-logfile", "-"
     ]
     
-    return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-def run_bot():
-    """Запуск Telegram бота"""
-    logger.info("🤖 Запуск Telegram бота...")
-    
-    from start_bot import main as bot_main
-    bot_main()
+    # Перенаправляем вывод в системный stdout, чтобы видеть логи в панели Render
+    return subprocess.Popen(cmd)
 
 def check_web_health():
     """Проверка, что веб-приложение запустилось"""
-    for i in range(10):  # Пробуем 10 раз
+    # Проверяем либо /health, либо главную страницу /
+    url = f"http://127.0.0.1:{PORT}/" 
+    for i in range(15): 
         try:
-            response = requests.get("http://localhost:10000/health", timeout=2)
-            if response.status_code == 200:
-                logger.info(f"✅ Веб-приложение доступно (попытка {i+1})")
+            response = requests.get(url, timeout=2)
+            # Если ответил любым кодом (даже 404), значит сервер поднялся
+            if response.status_code < 500:
+                logger.info(f"✅ Веб-сервер ответил (код {response.status_code})")
                 return True
         except:
-            logger.info(f"⏳ Ожидание веб-приложения... (попытка {i+1})")
+            logger.info(f"⏳ Ожидание веб-приложения... ({i+1}/15)")
             time.sleep(2)
-    
-    logger.warning("⚠️ Веб-приложение не ответило, но запускаем бота...")
     return False
 
 def main():
-    """Запуск обоих сервисов"""
     logger.info("🚀 Запуск Time Tracker системы...")
     
-    # Проверяем токен бота
-    if not os.environ.get('BOT_TOKEN'):
-        logger.warning("⚠️ BOT_TOKEN не найден, запускаю только веб")
-        web_process = run_web()
-        web_process.wait()
-        return
-    
-    # Запускаем веб
-    logger.info("1. Запускаю веб-приложение...")
+    # 1. Запуск Веба
     web_process = run_web()
     
-    # Ждём и проверяем запуск веба
-    logger.info("2. Ожидание запуска веб-приложения...")
-    time.sleep(3)
-    
+    # 2. Проверка Веба
     if check_web_health():
-        logger.info("✅ Веб-приложение готово")
+        logger.info("✅ Веб-приложение успешно запущено")
     else:
-        logger.warning("⚠️ Веб-приложение не отвечает, но продолжаем...")
-    
-    # Запускаем бота
-    logger.info("3. Запускаю Telegram бота...")
-    try:
-        # Запускаем бота (блокирующий вызов)
-        run_bot()
-    except KeyboardInterrupt:
-        logger.info("\n🛑 Остановка по запросу пользователя...")
-    except Exception as e:
-        logger.error(f"❌ Ошибка бота: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        # Завершаем веб-процесс
-        logger.info("🧹 Остановка веб-приложения...")
-        web_process.terminate()
+        logger.warning("⚠️ Веб-приложение не ответило вовремя, но пробуем запустить бота")
+
+    # 3. Запуск Бота
+    if not os.environ.get('BOT_TOKEN'):
+        logger.error("❌ BOT_TOKEN не найден! Бот не будет запущен.")
         web_process.wait()
-        logger.info("👋 Завершение работы")
+    else:
+        try:
+            from start_bot import main as bot_main
+            bot_main()
+        except KeyboardInterrupt:
+            logger.info("🛑 Остановка...")
+        finally:
+            web_process.terminate()
 
 if __name__ == '__main__':
     main()
