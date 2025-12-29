@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import User, Category, Event
-from app.auth import telegram_auth_required
 from datetime import datetime
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
@@ -10,36 +9,66 @@ api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
 def telegram_auth():
     data = request.json
     telegram_id = str(data.get('telegram_id'))
-    # Ищем по telegram_id или по имени Maria
-    user = User.query.filter((User.telegram_id == telegram_id) | (User.username == 'Maria')).first()
+    username = data.get('username')
+
+    # Ищем пользователя по Telegram ID
+    user = User.query.filter_by(telegram_id=telegram_id).first()
     
-    if user:
-        if not user.telegram_id:
+    # Если не нашли по ID, ищем по username (привязка при первом входе)
+    if not user and username:
+        user = User.query.filter_by(username=username).first()
+        if user:
             user.telegram_id = telegram_id
             db.session.commit()
-        return jsonify({'status': 'authenticated', 'user_id': user.id, 'username': user.username}), 200
-    return jsonify({'status': 'needs_registration'}), 404
+
+    if user:
+        return jsonify({
+            'status': 'authenticated', 
+            'user_id': user.id, 
+            'username': user.username,
+            'has_categories': len(user.categories) > 0
+        }), 200
+    
+    # Если пользователя нет вообще — отправляем на регистрацию
+    return jsonify({
+        'status': 'needs_registration', 
+        'registration_url': 'https://time-tracker-2-pfld.onrender.com/register'
+    }), 404
 
 @api_bp.route('/telegram/categories', methods=['GET'])
-@telegram_auth_required
 def telegram_categories():
-    user = request.current_user
-    categories = Category.query.filter_by(user_id=user.id).all()
+    # Получаем ID пользователя из заголовков запроса
+    user_id = request.headers.get('X-User-Id')
+    if not user_id:
+        return jsonify({'error': 'Unauthorized'}), 401
     
-    # ЕСЛИ ПУСТО - СОЗДАЕМ ТЕСТОВЫЕ КАТЕГОРИИ АВТОМАТОМ
-    if not categories:
-        basic_cats = [
-            {'name': 'Работа', 'color': '#FF5733'},
-            {'name': 'Отдых', 'color': '#33FF57'},
-            {'name': 'Учеба', 'color': '#3357FF'}
-        ]
-        for cat_data in basic_cats:
-            new_cat = Category(name=cat_data['name'], color=cat_data['color'], user_id=user.id)
-            db.session.add(new_cat)
-        db.session.commit()
-        categories = Category.query.filter_by(user_id=user.id).all()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
 
-    return jsonify({
-        'categories': [{'id': c.id, 'name': c.name, 'color': c.color} for c in categories],
-        'quick_replies': [{'text': c.name, 'callback_data': f'cat_{c.id}'} for c in categories]
-    })
+    # Просто возвращаем то, что реально создал пользователь
+    categories = [
+        {'id': c.id, 'name': c.name, 'color': c.color} 
+        for c in user.categories
+    ]
+    
+    return jsonify({'categories': categories})
+
+@api_bp.route('/telegram/events', methods=['POST'])
+def create_telegram_event():
+    data = request.json
+    try:
+        new_event = Event(
+            user_id=data['user_id'],
+            category_id=data['category_id'],
+            start_time=datetime.fromisoformat(data['start_time']),
+            end_time=datetime.fromisoformat(data['end_time']),
+            event_type=data.get('event_type', 'fact'),
+            description=data.get('description', '')
+        )
+        db.session.add(new_event)
+        db.session.commit()
+        return jsonify({'status': 'created', 'id': new_event.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
