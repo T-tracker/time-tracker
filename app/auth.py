@@ -3,14 +3,12 @@ from functools import wraps
 from flask import redirect, url_for, flash, request
 from flask_login import current_user
 
-# Инициализация менеджера входа
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Пожалуйста, войдите для доступа к этой странице.'
 login_manager.login_message_category = 'warning'
 
 def login_required(f):
-    """Декоратор для обычной веб-аутентификации"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
@@ -20,33 +18,36 @@ def login_required(f):
     return decorated_function
 
 def telegram_auth_required(f):
-    """Декоратор для проверки запросов от Telegram-бота"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # 1. Извлекаем ID из заголовков или аргументов
-        # Бот может прислать его в разных полях, мы проверяем все
-        tg_id_header = request.headers.get('X-Telegram-User-ID') or \
-                       request.headers.get('X-Telegram-ID') or \
-                       request.args.get('telegram_id')
+        tg_id_val = request.headers.get('X-Telegram-User-ID') or \
+                    request.headers.get('X-Telegram-ID') or \
+                    request.args.get('telegram_id')
         
-        if not tg_id_header:
+        if not tg_id_val:
             return {'error': 'Telegram ID required'}, 401
         
         from app.models import User
         
-        # 2. Поиск пользователя (Двойная проверка)
-        # Сначала ищем по Telegram ID (длинные цифры, которые ты ввела на сайте)
-        user = User.query.filter_by(telegram_id=str(tg_id_header)).first()
+        # 1. Сначала ищем по настоящему длинному Telegram ID (6730973279)
+        # Мы берем .order_by(User.id.desc()), чтобы если их вдруг два, взялся НОВЫЙ
+        user = User.query.filter_by(telegram_id=str(tg_id_val)).order_by(User.id.desc()).first()
         
-        # Если не нашли по Telegram ID, пробуем найти по внутреннему ID базы данных
-        # Это подстраховка на случай, если бот присылает свой внутренний кэш
-        if not user and str(tg_id_header).isdigit():
-            user = User.query.get(int(tg_id_header))
+        # 2. Если не нашли (значит бот прислал внутренний ID, например "7")
+        if not user and str(tg_id_val).isdigit():
+            # Пробуем найти пользователя по системному ID
+            user = User.query.get(int(tg_id_val))
+            
+            # Если нашли пользователя по системному ID, но у него НЕТ категорий,
+            # а в базе есть кто-то другой с таким же Telegram ID, переключаемся на него!
+            if user and user.telegram_id:
+                better_user = User.query.filter_by(telegram_id=user.telegram_id).order_by(User.id.desc()).first()
+                if better_user:
+                    user = better_user
         
         if not user:
-            return {'error': f'User with ID {tg_id_header} not found'}, 404
+            return {'error': f'User {tg_id_val} not found'}, 404
         
-        # 3. Сохраняем найденного пользователя в объект запроса
         request.current_user = user
         return f(*args, **kwargs)
         
