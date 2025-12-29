@@ -9,11 +9,22 @@ import re
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
 
-@api_bp.route('/telegram/auth', methods=['POST'])
+@api_bp.route('/telegram/auth', methods=['GET', 'POST'])
 def telegram_auth():
     """Авторизация/регистрация через Telegram"""
-    data = request.json
     
+    # 1. Проверка связи для бота
+    if request.method == 'GET':
+        return jsonify({
+            'status': 'ok',
+            'message': 'API is reachable'
+        }), 200
+
+    # 2. Логика авторизации (POST)
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+        
     telegram_id = data.get('telegram_id')
     username = data.get('username')
     
@@ -21,7 +32,7 @@ def telegram_auth():
         return jsonify({'error': 'telegram_id required'}), 400
     
     # Ищем пользователя
-    user = User.query.filter_by(telegram_id=telegram_id).first()
+    user = User.query.filter_by(telegram_id=str(telegram_id)).first()
     
     if user:
         # Пользователь уже существует
@@ -32,12 +43,13 @@ def telegram_auth():
             'has_categories': Category.query.filter_by(user_id=user.id).count() > 0
         }), 200
     else:
-        # Новый пользователь - нужно зарегистрироваться через веб
-        # ИСПРАВЬТЕ URL НА ВАШ ТЕКУЩИЙ:
+        # Новый пользователь - отправляем на регистрацию
+        # УБЕДИТЕСЬ, ЧТО URL НИЖЕ СОВПАДАЕТ С ВАШИМ НА RENDER
+        reg_url = f'https://time-tracker-2-pfld.onrender.com/register?telegram_id={telegram_id}'
         return jsonify({
             'status': 'needs_registration',
-            'message': 'Please complete registration via web interface first',
-            'registration_url': f'https://time-tracker-18-18.onrender.com/register?telegram_id={telegram_id}'
+            'message': 'Please register via web first',
+            'registration_url': reg_url
         }), 404
 
 @api_bp.route('/telegram/categories', methods=['GET'])
