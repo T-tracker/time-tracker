@@ -14,61 +14,73 @@ logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    # Передаем реальный username или first_name
     username_to_send = user.username if user.username else user.first_name
     
     success, user_data = api_client.authenticate_telegram_user(user.id, username_to_send)
     
     if not success:
-        reg_url = "https://time-tracker-2-pfld.onrender.com/register"
         await update.message.reply_text(
-            f"🚫 Я тебя не узнал.\n1. Убедись, что ты зарегистрирована на сайте: {reg_url}\n"
-            f"2. Если никнеймы разные, укажи в профиле сайта Telegram ID: `{user.id}`", 
+            "🚫 Я не нашел твой аккаунт автоматически.\n"
+            "Если твой ник на сайте отличается от телеграма, напиши команду:\n"
+            "`/login имя_на_сайте`\n\n"
+            "Например: `/login Maria`", 
             parse_mode='Markdown'
         )
         return
 
-    # Сохраняем данные пользователя
-    state_manager.update_user_data(user.id, user_data)
-    state = state_manager.get_state(user.id)
+    await load_and_greet(update, user.id, user_data.get('username', 'User'))
+
+async def manual_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ручной вход, если автоматический не сработал"""
+    if not context.args:
+        await update.message.reply_text("Напиши свое имя на сайте. Пример: `/login Maria`", parse_mode='Markdown')
+        return
+
+    site_username = context.args[0]
+    user_id = update.effective_user.id
     
-    # Получаем категории, используя ID пользователя Telegram
-    categories = api_client.get_user_categories(user.id)
-    state_manager.update_categories(user.id, categories)
+    # Пробуем авторизоваться с указанным именем
+    success, user_data = api_client.authenticate_telegram_user(user_id, site_username)
+    
+    if success:
+        await load_and_greet(update, user_id, site_username)
+    else:
+        await update.message.reply_text(f"❌ Пользователь '{site_username}' не найден на сайте. Проверь регистр.")
+
+async def load_and_greet(update, telegram_id, username):
+    # Обновляем категории
+    categories = api_client.get_user_categories(telegram_id)
+    state_manager.update_categories(telegram_id, categories)
+    state = state_manager.get_state(telegram_id)
     
     if not categories:
-        await update.message.reply_text("В профиле пока нет категорий. Создай их на сайте!")
+        await update.message.reply_text(
+            f"👋 Привет, {username}! Аккаунт подключен.\n"
+            "⚠️ Но я не вижу категорий. Создай их на сайте в профиле!"
+        )
         return
 
     keyboard = get_categories_keyboard(state)
     await update.message.reply_text(
-        f"👋 Привет, {user_data.get('username', 'User')}!\nКатегорий загружено: {len(categories)}", 
+        f"👋 Привет, {username}!\nЗагружено категорий: {len(categories)}", 
         reply_markup=keyboard
     )
 
 def get_categories_keyboard(state):
-    if not state.categories: 
-        return ReplyKeyboardRemove()
-    
-    # Сортируем кнопки
+    if not state.categories: return ReplyKeyboardRemove()
     names = [c['name'] for c in state.categories]
     buttons = [names[i:i+2] for i in range(0, len(names), 2)]
-    buttons.append(["⏹️ Остановить всё"]) # Кнопка стоп всегда внизу
-    
+    buttons.append(["⏹️ Остановить всё"])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 async def handle_activity_switch(update, state, new_category=None):
-    """Логика завершения старой активности и начала новой"""
     user_id = update.effective_user.id
     message_parts = []
     
-    # 1. Если что-то уже шло - завершаем и сохраняем
     if state.current_activity:
-        # Округляем время окончания (оно же время начала следующего действия)
         end_time = round_to_next_15(datetime.now())
         start_time = state.current_activity['start_time']
         
-        # Защита от нулевых интервалов (если быстро нажать)
         if end_time > start_time:
             saved = api_client.save_event(
                 telegram_id=user_id,
@@ -76,18 +88,19 @@ async def handle_activity_switch(update, state, new_category=None):
                 start_time=start_time,
                 end_time=end_time
             )
-            status = "✅ Сохранено" if saved else "❌ Ошибка сохранения"
-            duration = end_time - start_time
-            minutes = int(duration.total_seconds() / 60)
+            status = "✅ Сохранено" if saved else "❌ Ошибка API"
+            
+            # Считаем длительность
+            diff = end_time - start_time
+            minutes = int(diff.total_seconds() / 60)
             
             message_parts.append(
                 f"{status}: {state.current_activity['name']}\n"
                 f"🕒 {start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')} ({minutes} мин)"
             )
         else:
-            message_parts.append(f"⚠️ Активность {state.current_activity['name']} слишком короткая, не сохранено.")
+            message_parts.append(f"⚠️ {state.current_activity['name']} - слишком короткая активность.")
     
-    # 2. Начинаем новую активность (если есть)
     if new_category:
         start_t = round_to_next_15(datetime.now())
         state.start_activity(new_category['id'], new_category['name'], start_t)
@@ -98,60 +111,35 @@ async def handle_activity_switch(update, state, new_category=None):
 
     await update.message.reply_text("\n".join(message_parts), parse_mode='HTML')
 
-
 async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     state = state_manager.get_state(user_id)
     text = update.message.text
 
-    # Обновляем список категорий при каждом клике (на случай изменений на сайте)
-    # Можно убрать, если нагрузка большая, но для теста полезно
-    # categories = api_client.get_user_categories(user_id)
-    # state_manager.update_categories(user_id, categories)
-
     if text == "⏹️ Остановить всё":
         await handle_activity_switch(update, state, new_category=None)
         return
 
-    # Ищем категорию по имени
     category = next((c for c in state.categories if c['name'] == text), None)
-    
     if category:
         await handle_activity_switch(update, state, new_category=category)
     else:
-        # Если прислали текст, который не является категорией
-        await update.message.reply_text("Выбери категорию из меню 👇")
-
-
-async def categories_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    cats = api_client.get_user_categories(user.id)
-    
-    state_manager.update_categories(user.id, cats)
-    state = state_manager.get_state(user.id)
-    
-    await update.message.reply_text(
-        f"Список обновлен! Доступно категорий: {len(cats)}", 
-        reply_markup=get_categories_keyboard(state)
-    )
+        await update.message.reply_text("Выбери категорию из меню или напиши /start для обновления.")
 
 def main():
     logger.info("Checking API...")
-    # Небольшая пауза при старте, чтобы веб успел подняться
-    time.sleep(2) 
+    time.sleep(3) 
     
     if api_client.check_connection():
-        logger.info("✅ Connected to Web API")
+        logger.info("✅ API Online")
     else:
-        logger.warning("⚠️ Could not connect to Web API (will retry)")
+        logger.warning("⚠️ API connection failed, but starting bot anyway...")
     
     app = Application.builder().token(BOT_TOKEN).build()
-    
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("categories", categories_command))
+    app.add_handler(CommandHandler("login", manual_login)) # Новая команда
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_category))
     
-    logger.info("Bot started polling...")
     app.run_polling()
 
 if __name__ == "__main__":
