@@ -10,48 +10,66 @@ api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
 def telegram_auth():
     data = request.json
     telegram_id = str(data.get('telegram_id'))
+    # Имя, которое пользователь ввел через /login (или ник из телеграма)
     username = data.get('username', '').strip()
     
-    # 1. Ищем по Telegram ID
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    
-    # 2. Если не нашли, ищем по никнейму (без учета регистра!)
-    if not user and username:
-        user = User.query.filter(func.lower(User.username) == func.lower(username)).first()
-        if user:
-            user.telegram_id = telegram_id
+    print(f"🔐 Auth attempt: ID={telegram_id}, Name={username}")
+
+    user_final = None
+
+    # 1. Сначала ищем пользователя по ИМЕНИ (если оно передано)
+    # Это позволяет принудительно привязаться к "Maria", даже если ID занят "goryachy_supchik"
+    if username:
+        user_by_name = User.query.filter(func.lower(User.username) == func.lower(username)).first()
+        if user_by_name:
+            print(f"✅ Found user by name: {user_by_name.username}")
+            # Если этот ID уже привязан к КОМУ-ТО ДРУГОМУ (призраку), отвязываем его
+            conflict_user = User.query.filter_by(telegram_id=telegram_id).first()
+            if conflict_user and conflict_user.id != user_by_name.id:
+                print(f"⚠️ Unlinking ID from old user: {conflict_user.username}")
+                conflict_user.telegram_id = None
+                db.session.add(conflict_user)
+            
+            # Привязываем к правильному пользователю
+            user_by_name.telegram_id = telegram_id
+            db.session.add(user_by_name)
             db.session.commit()
-    
-    if user:
+            user_final = user_by_name
+
+    # 2. Если по имени не нашли (или имя не передали), ищем по ID (авто-вход)
+    if not user_final:
+        user_final = User.query.filter_by(telegram_id=telegram_id).first()
+
+    if user_final:
+        print(f"🎉 Successfully authenticated: {user_final.username} (ID: {user_final.id})")
         return jsonify({
             'status': 'authenticated', 
-            'user_id': user.id, 
-            'username': user.username
+            'user_id': user_final.id, 
+            'username': user_final.username
         }), 200
     
+    print("❌ User not found")
     return jsonify({'status': 'needs_registration'}), 404
 
 @api_bp.route('/telegram/categories', methods=['GET'])
 def telegram_categories():
-    # БЕРЕМ ID ИЗ ПАРАМЕТРОВ URL (?telegram_id=123), А НЕ ИЗ ЗАГОЛОВКОВ
     telegram_id = request.args.get('telegram_id')
     
     if not telegram_id:
-        print("❌ Ошибка: telegram_id не передан в URL")
         return jsonify({'categories': []}), 400
 
     user = User.query.filter_by(telegram_id=str(telegram_id)).first()
     
     if not user:
-        print(f"❌ Ошибка: Пользователь с telegram_id={telegram_id} не найден")
+        print(f"❌ Категории: Пользователь с ID {telegram_id} не найден в БД")
         return jsonify({'categories': []}), 404
 
     cats = Category.query.filter_by(user_id=user.id).all()
-    # Сортируем: сначала те, что созданы недавно
+    # Сортировка: новые в начале
     cats.sort(key=lambda x: x.id, reverse=True)
     
     result = [{'id': c.id, 'name': c.name, 'color': c.color} for c in cats]
-    print(f"✅ Найдено категорий для {user.username}: {len(result)}")
+    print(f"📂 Категории для {user.username}: {[c['name'] for c in result]}")
     return jsonify({'categories': result})
 
 @api_bp.route('/telegram/event', methods=['POST'])
