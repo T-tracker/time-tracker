@@ -5,13 +5,13 @@ logger = logging.getLogger(__name__)
 
 class APIClient:
     def __init__(self):
-        # Убедись, что ссылка правильная (без пробелов в конце)
         self.base_url = "https://time-tracker-2-pfld.onrender.com/api/v1"
 
     def check_connection(self):
         try:
-            # Просто пингуем любой открытый эндпоинт или корень
-            return requests.get(f"{self.base_url}/telegram/categories").status_code < 500
+            # Проверяем health, а не категории, чтобы не получать 400 ошибку
+            requests.get("https://time-tracker-2-pfld.onrender.com/health", timeout=5)
+            return True
         except: 
             return False
 
@@ -22,29 +22,29 @@ class APIClient:
                 "username": username
             }
             res = requests.post(f"{self.base_url}/telegram/auth", json=payload)
-            
-            if res.status_code == 200:
-                return True, res.json()
-            return False, {}
+            return res.status_code == 200, res.json()
         except Exception as e:
             logger.error(f"Auth error: {e}")
             return False, {}
 
     def get_user_categories(self, telegram_id):
         try:
-            # Передаем ID в заголовке
-            headers = {"X-Telegram-ID": str(telegram_id)}
-            res = requests.get(f"{self.base_url}/telegram/categories", headers=headers)
+            # Передаем ID прямо в ссылке, это надежнее
+            params = {"telegram_id": str(telegram_id)}
+            res = requests.get(f"{self.base_url}/telegram/categories", params=params)
             
             if res.status_code == 200:
-                return res.json().get('categories', [])
-            return []
+                data = res.json().get('categories', [])
+                logger.info(f"Loaded {len(data)} categories for {telegram_id}")
+                return data
+            else:
+                logger.error(f"Error getting categories: {res.status_code} - {res.text}")
+                return []
         except Exception as e:
-            logger.error(f"Categories error: {e}")
+            logger.error(f"Categories exception: {e}")
             return []
 
     def save_event(self, telegram_id, category_id, start_time, end_time):
-        """Отправляет данные о завершенном событии"""
         try:
             payload = {
                 "telegram_id": str(telegram_id),
