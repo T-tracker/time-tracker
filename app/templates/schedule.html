@@ -543,7 +543,7 @@
                             <label class="form-label">День</label>
                             <select class="form-select" id="eventDay" required>
                                 {% for day in days %}
-                                <option value="{{ forloop.counter0 }}">{{ day.name }}</option>
+                                <option value="{{ loop.index0 }}">{{ day.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
