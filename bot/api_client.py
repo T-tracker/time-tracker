@@ -6,11 +6,8 @@ logger = logging.getLogger(__name__)
 
 class APIClient:
     def __init__(self):
-        # ВАЖНО: Если бот и сайт на одном компьютере, используем localhost
-        # Если вы залили бота на сервер, раскомментируйте строчку с onrender
-        
-        self.base_url = "http://127.0.0.1:5000/api/v1"
-        # self.base_url = "https://time-tracker-2-pfld.onrender.com/api/v1" 
+    
+        self.base_url = "https://time-tracker-2-pfld.onrender.com/api/v1" 
 
     def check_connection(self):
         try:
