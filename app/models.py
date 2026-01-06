@@ -44,9 +44,6 @@ class Category(db.Model):
             'description': self.description,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
-    
-    def __repr__(self):
-        return f'<Category {self.name}>'
 
 
 class Event(db.Model):
@@ -57,30 +54,25 @@ class Event(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
-    type = db.Column(db.String(10), nullable=False, default='plan')
+    type = db.Column(db.String(10), nullable=False, default='plan') # 'plan' или 'fact'
     source = db.Column(db.String(10), nullable=False, default='web')
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    __table_args__ = (
-        db.Index('idx_event_user', 'user_id'),
-        db.Index('idx_event_user_time', 'user_id', 'start_time'),
-    )
-    
+    # Отношение к категории, чтобы получать цвет и имя сразу
+    category = db.relationship('Category', backref='events')
+
     def to_dict(self):
         return {
             'id': self.id,
             'category_id': self.category_id,
+            'category_name': self.category.name if self.category else 'Unknown',
+            'category_color': self.category.color if self.category else '#ccc',
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'end_time': self.end_time.isoformat() if self.end_time else None,
             'type': self.type,
-            'source': self.source,
-            'description': self.description,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'source': self.source
         }
-    
-    def __repr__(self):
-        return f'<Event {self.type} {self.start_time}>'
 
 
 class Template(db.Model):
@@ -89,8 +81,5 @@ class Template(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    data = db.Column(db.JSON, nullable=False)
+    data = db.Column(db.JSON, nullable=False) # Храним JSON структуры шаблона
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Template {self.name}>'
