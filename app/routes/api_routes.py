@@ -82,18 +82,25 @@ def create_telegram_event():
         return jsonify({'error': 'User not found'}), 404
         
     try:
+        # Преобразуем строки в datetime
+        start = datetime.fromisoformat(data['start_time'])
+        end = datetime.fromisoformat(data['end_time'])
+
+        # Создаем событие с типом 'fact' (это верно!)
         event = Event(
             user_id=user.id,
             category_id=data['category_id'],
-            start_time=datetime.fromisoformat(data['start_time']),
-            end_time=datetime.fromisoformat(data['end_time']),
-            type='fact',
+            start_time=start,
+            end_time=end,
+            type='fact',       # ВАЖНО: Убедитесь, что в schedule.html вы ищете 'fact'
             source='telegram'
         )
         
         db.session.add(event)
         db.session.commit()
+        print(f"💾 Saved FACT event for {user.username}: {start.strftime('%H:%M')}-{end.strftime('%H:%M')}")
         return jsonify({'status': 'success', 'id': event.id}), 201
     except Exception as e:
+        print(f"❌ Error saving event: {e}")
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
