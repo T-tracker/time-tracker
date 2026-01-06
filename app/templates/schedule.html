@@ -642,25 +642,19 @@
 document.addEventListener('DOMContentLoaded', function() {
     // === КОНФИГУРАЦИЯ ===
     const daysCount = {{ days|length }};
-    
-    // Получаем категории из Python (через шаблон), если они передаются, 
-    // или используем дефолтные для старта, но лучше чтобы бэкенд их отдавал.
-    // Пока оставим заглушку для категорий, но события будем тянуть реально.
-    let categories = [
-        {id: 1, name: 'Работа', color: '#ffadad'},
-        {id: 2, name: 'Учеба', color: '#ffd6a5'},
-        {id: 3, name: 'Спорт', color: '#fdffb6'},
-        {id: 4, name: 'Отдых', color: '#caffbf'},
-        {id: 5, name: 'Сон', color: '#a0c4ff'},
-        {id: 6, name: 'Быт', color: '#bdb2ff'}
-    ];
+    const currentWeekStart = "{{ days[0].full_date }}"; // Берем дату понедельника из шаблона
+    let categories = []; // Теперь категории будут грузиться из БД
 
     // === ИНИЦИАЛИЗАЦИЯ ===
-    renderScheduleTable();
-    updateSelectors(); // Заполняем выпадающие списки категорий
-    loadEvents();      // <--- ЗАГРУЖАЕМ ДАННЫЕ С СЕРВЕРА
+    initApp();
 
-    // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (CSRF) ===
+    async function initApp() {
+        await loadCategories(); // Сначала категории
+        renderScheduleTable();  // Потом сетка
+        loadEvents();           // Потом события
+    }
+
+    // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -678,51 +672,64 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // === ВЗАИМОДЕЙСТВИЕ С СЕРВЕРОМ ===
 
-    // 1. Загрузка событий
-    function loadEvents() {
-        fetch('/api/get_schedule/')  // Убедитесь, что такой маршрут есть в app.py
-            .then(response => response.json())
-            .then(data => {
-                // Очищаем сетку перед отрисовкой
-                document.querySelectorAll('.plan-event, .fact-event').forEach(e => e.remove());
-                
-                // data должно быть списком объектов: {day_index, time_start, duration, type, category_id, ...}
-                data.forEach(event => {
-                    renderEventOnGrid(event);
-                });
-                // Перерисовываем диаграмму после загрузки данных
-                drawBalanceWheel(data);
-            })
-            .catch(error => console.error('Ошибка загрузки:', error));
+    // 0. Загрузка КАТЕГОРИЙ (ВАЖНО!)
+    async function loadCategories() {
+        try {
+            const response = await fetch('/api/v1/categories');
+            const data = await response.json();
+            categories = data.categories;
+            updateSelectors();
+            console.log("📂 Категории загружены:", categories);
+        } catch (e) {
+            console.error("Ошибка загрузки категорий:", e);
+        }
     }
 
-    // 2. Отрисовка одного события (Визуальная часть)
+    // 1. Загрузка событий (ИСПРАВЛЕН URL)
+    function loadEvents() {
+        fetch(`/api/v1/events/week/${currentWeekStart}`) 
+            .then(response => response.json())
+            .then(data => {
+                document.querySelectorAll('.plan-event, .fact-event').forEach(e => e.remove());
+                if (data.events) {
+                    data.events.forEach(event => {
+                        renderEventOnGrid(event);
+                    });
+                    drawBalanceWheel(data.events);
+                }
+            })
+            .catch(error => console.error('Ошибка загрузки событий:', error));
+    }
+
+    // 2. Отрисовка события на сетке
     function renderEventOnGrid(event) {
-        // Ищем нужную ячейку. Формат времени должен совпадать (например "09:00")
-        // event.day_index (0-6), event.time_start ("HH:MM"), event.type ("plan"/"fact")
+        // Превращаем ISO дату в строку времени HH:MM
+        const date = new Date(event.start_time);
+        const timeStr = date.getHours().toString().padStart(2, '0') + ':' + 
+                        date.getMinutes().toString().padStart(2, '0');
         
-        // Находим ячейку по атрибутам
-        const selector = `td[data-day="${event.day_index}"][data-time="${event.time_start}"][data-type="${event.type}"]`;
+        // Вычисляем индекс дня (0-6)
+        const eventDate = event.start_time.split('T')[0];
+        const weekStart = new Date(currentWeekStart);
+        const currentEventDate = new Date(eventDate);
+        const dayIndex = Math.round((currentEventDate - weekStart) / (1000 * 60 * 60 * 24));
+
+        const selector = `td[data-day="${dayIndex}"][data-time="${timeStr}"][data-type="${event.type}"]`;
         const cell = document.querySelector(selector);
 
         if (cell) {
             const cat = categories.find(c => c.id == event.category_id) || {name: '?', color: '#ccc'};
-            
             const div = document.createElement('div');
             div.className = event.type === 'plan' ? 'plan-event' : 'fact-event';
             div.style.backgroundColor = cat.color + 'aa';
             div.style.borderColor = cat.color;
             div.textContent = cat.name;
-            
-            // Если длительность > 15 мин, можно растянуть (сложная логика, пока просто заполняем старт)
-            // Для простоты в MVP заполняем только стартовую ячейку или все ячейки диапазона
-            
             cell.innerHTML = '';
             cell.appendChild(div);
         }
     }
 
-    // 3. Сохранение (Bulk)
+    // 3. Сохранение (ИСПРАВЛЕН URL и формат данных)
     function saveBulkEvents(targetType) {
         const catId = document.getElementById('bulkCategorySelect').value;
         if (!catId) {
@@ -733,36 +740,36 @@ document.addEventListener('DOMContentLoaded', function() {
         const eventsToSave = [];
         selectedCells.forEach(cell => {
             eventsToSave.push({
-                day_index: cell.dataset.day,
-                time_start: cell.dataset.time,
-                type: targetType, // 'plan' или 'fact'
+                day: cell.dataset.day,
+                time: cell.dataset.time,
                 category_id: catId,
-                duration: 15 // Пока фиксировано один слот
+                type: targetType
             });
         });
 
-        // Отправка на сервер
-        fetch('/api/save_bulk/', { // Нужен такой маршрут в Python
+        fetch('/api/v1/web/save_schedule', { 
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken') // Для Django/Flask WTForms
+                'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({ events: eventsToSave })
+            body: JSON.stringify({ 
+                week_start: currentWeekStart,
+                events: eventsToSave 
+            })
         })
         .then(response => {
             if (response.ok) {
-                // Если успешно сохранено в БД, обновляем интерфейс
                 applyBulkVisuals(targetType, catId);
-                loadEvents(); // Или просто перезагружаем данные для надежности
+                loadEvents(); 
             } else {
-                alert('Ошибка сохранения на сервере');
+                alert('Ошибка сохранения');
             }
         })
         .catch(error => console.error('Error:', error));
     }
 
-    // === СТАРЫЕ ФУНКЦИИ ОТРИСОВКИ (Оставлены, но чуть модифицированы) ===
+    // === СЕТКА И ВЫБОР === (Тут без изменений, просто адаптировано)
 
     function renderScheduleTable() {
         const tbody = document.getElementById('scheduleBody');
@@ -771,24 +778,14 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let m = 0; m < 60; m += 15) {
                 const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
                 const row = document.createElement('tr');
-                
-                // Время
                 const timeCell = document.createElement('td');
                 timeCell.className = 'time-column';
-                if (m === 0) {
-                    timeCell.textContent = timeStr;
-                    timeCell.style.fontWeight = 'bold';
-                }
+                if (m === 0) timeCell.textContent = timeStr;
                 row.appendChild(timeCell);
 
-                // Ячейки
                 for (let d = 0; d < daysCount; d++) {
-                    // План
-                    const planCell = createCell(d, timeStr, 'plan');
-                    row.appendChild(planCell);
-                    // Факт
-                    const factCell = createCell(d, timeStr, 'fact');
-                    row.appendChild(factCell);
+                    row.appendChild(createCell(d, timeStr, 'plan'));
+                    row.appendChild(createCell(d, timeStr, 'fact'));
                 }
                 tbody.appendChild(row);
             }
@@ -805,25 +802,12 @@ document.addEventListener('DOMContentLoaded', function() {
         return cell;
     }
 
-    function renderCategories() {
-        // Можно загружать категории тоже с сервера: fetch('/api/categories')
-        const list = document.getElementById('categoriesList');
-        list.innerHTML = '';
-        categories.forEach(cat => {
-            const item = document.createElement('div');
-            item.className = 'category-item';
-            item.innerHTML = `<div class="category-color" style="background:${cat.color}"></div><span>${cat.name}</span>`;
-            list.appendChild(item);
-        });
-    }
-
     function updateSelectors() {
         const selects = [
             document.getElementById('bulkCategorySelect'), 
             document.getElementById('eventCategory'),
             document.getElementById('quickCategory')
         ];
-        
         selects.forEach(sel => {
             if(!sel) return;
             sel.innerHTML = '<option value="">Выберите категорию</option>';
@@ -836,53 +820,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // === ЛОГИКА ВЫДЕЛЕНИЯ (Остается как была, только вызывает saveBulkEvents) ===
-    
     let selectedCells = new Set();
     const bulkPanel = document.getElementById('bulkEditPanel');
     const selectedCountLabel = document.getElementById('selectedCount');
 
     function toggleSelection(e, cell) {
-        // Если клик по самому событию — игнорируем или открываем ред. (пока пропустим)
         if (e.target.classList.contains('plan-event') || e.target.classList.contains('fact-event')) return;
-
         cell.classList.toggle('selected');
-        if (cell.classList.contains('selected')) {
-            selectedCells.add(cell);
-        } else {
-            selectedCells.delete(cell);
-        }
+        if (cell.classList.contains('selected')) selectedCells.add(cell);
+        else selectedCells.delete(cell);
         updateBulkPanel();
     }
 
     function updateBulkPanel() {
         if (selectedCells.size > 0) {
-            bulkPanel.classList.add('show');
             bulkPanel.style.display = 'flex';
             selectedCountLabel.textContent = `${selectedCells.size} выбрано`;
         } else {
-            bulkPanel.classList.remove('show');
             bulkPanel.style.display = 'none';
         }
     }
 
-    // Привязываем кнопки к новым функциям сохранения
     document.getElementById('bulkPlanBtn').addEventListener('click', () => saveBulkEvents('plan'));
     document.getElementById('bulkFactBtn').addEventListener('click', () => saveBulkEvents('fact'));
-    
     document.getElementById('bulkCancelBtn').addEventListener('click', () => {
         selectedCells.forEach(cell => cell.classList.remove('selected'));
         selectedCells.clear();
         updateBulkPanel();
     });
-    
-    // Очистка (удаление) - тоже нужно отправлять на сервер
-    document.getElementById('bulkClearBtn').addEventListener('click', () => {
-         // Тут нужен fetch DELETE запрос, пока просто визуально
-         alert('Функция удаления с сервера еще не реализована в JS');
-    });
 
-    // Визуальное применение (чтобы юзер видел результат сразу)
     function applyBulkVisuals(targetType, catId) {
         const category = categories.find(c => c.id == catId);
         selectedCells.forEach(cell => {
@@ -899,21 +865,21 @@ document.addEventListener('DOMContentLoaded', function() {
         updateBulkPanel();
     }
 
-    // === КОЛЕСО БАЛАНСА ===
     function drawBalanceWheel(eventsData) {
-        // Тут нужно подсчитать статистику на основе eventsData
-        // Пока оставим заглушку, чтобы не усложнять код сразу
         const ctx = document.getElementById('balanceWheel').getContext('2d');
         if (window.myChart) window.myChart.destroy();
         
-        const data = categories.map(() => Math.floor(Math.random() * 10) + 1); // ЗАГЛУШКА
+        // Считаем количество слотов по каждой категории
+        const stats = categories.map(cat => {
+            return eventsData.filter(e => e.category_id == cat.id).length;
+        });
 
         window.myChart = new Chart(ctx, {
             type: 'polarArea',
             data: {
                 labels: categories.map(c => c.name),
                 datasets: [{
-                    data: data,
+                    data: stats,
                     backgroundColor: categories.map(c => c.color + '80'),
                     borderWidth: 1
                 }]
