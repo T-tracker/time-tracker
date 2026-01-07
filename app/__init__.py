@@ -1,21 +1,24 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from sqlalchemy import text
+from flask_migrate import Migrate
 
 # Создаем экземпляры
 db = SQLAlchemy()
 login_manager = LoginManager()
+migrate = Migrate()
+
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(name)
     app.config.from_object('config.Config')
     
     # Инициализируем расширения
     db.init_app(app)
     login_manager.init_app(app)
+    migrate.init_app(app, db)
     
-    # Устанавливаем login view
+    # Куда редиректить неавторизованных
     login_manager.login_view = 'auth.login'
     
     # Регистрация blueprints
@@ -30,33 +33,11 @@ def create_app():
     app.register_blueprint(web_pages_bp)
     app.register_blueprint(schedule_api_bp, url_prefix='/api/v1')
     
-    with app.app_context():
-        try:
-            # 1. Создаём таблицы
-            db.create_all()
-            
-            # 2. Пытаемся добавить колонку description, если её нет (исправленный SQL)
-            try:
-                # Используем text() для безопасности SQLAlchemy
-                check_sql = text("SELECT column_name FROM information_schema.columns WHERE table_name='categories' AND column_name='description'")
-                result = db.session.execute(check_sql).fetchone()
-                
-                if not result:
-                    db.session.execute(text("ALTER TABLE categories ADD COLUMN description TEXT DEFAULT ''"))
-                    db.session.commit()
-                    print("✅ Column 'description' added")
-            except Exception as e:
-                db.session.rollback()
-                print(f"ℹ️ Note: Description column check skipped: {e}")
-            
-            # 3. Настраиваем user_loader
-            from app.models import User
-            
-            @login_manager.user_loader
-            def load_user(user_id):
-                return User.query.get(int(user_id))
-                
-        except Exception as e:
-            print(f"❌ Ошибка при инициализации БД: {e}")
+    # user_loader
+    from app.models import User
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
     
     return app
