@@ -81,7 +81,7 @@ def manage_categories():
         db.session.commit()
         
         flash(f'Категория "{name}" создана!', 'success')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.manage_categories'))
     
     # все категории пользователя
     categories = Category.query.filter_by(user_id=current_user.id).all()
