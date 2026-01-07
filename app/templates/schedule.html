@@ -3,7 +3,6 @@
 
 {% block extra_css %}
 <style>
-    /* --- CSS СТИЛИ --- */
     :root {
         --card-bg: #ffffff;
         --primary-color: #f8b5d1;
@@ -56,7 +55,7 @@
         overflow-x: auto;
         width: 100%;
         border: 1px solid rgba(248, 181, 209, 0.15);
-        max-height: 80vh; /* Ограничение высоты для скролла */
+        max-height: 80vh;
     }
 
     .schedule-header {
@@ -98,229 +97,221 @@
     }
 
     .day-header {
-        background-color: #fff;
-        padding: 0.75rem;
         font-weight: 600;
-        text-align: center;
-        border-bottom: 2px solid rgba(248, 181, 209, 0.3);
-        position: sticky;
-        top: 0; /* Sticky within the container if structure allows, else simplified */
-        z-index: 80;
-        color: var(--text-color);
+        font-size: 0.9rem;
     }
 
-    /* Ячейки сетки */
-    .plan-column, .fact-column {
-        height: 25px;
-        padding: 0;
-        position: relative;
-        cursor: pointer;
-        z-index: 1;
-        border-bottom: 1px dotted rgba(0,0,0,0.05);
-        transition: background-color 0.1s;
+    .day-date {
+        font-size: 0.75rem;
+        opacity: 0.9;
     }
-
-    .plan-column {
-        background-color: rgba(167, 210, 203, 0.05);
-        border-right: 1px solid rgba(0,0,0,0.05);
-    }
-    .plan-column:hover { background-color: rgba(167, 210, 203, 0.2); }
-
-    .fact-column {
-        background-color: rgba(205, 180, 219, 0.05);
-    }
-    .fact-column:hover { background-color: rgba(205, 180, 219, 0.2); }
 
     .plan-header {
-        background-color: rgba(167, 210, 203, 0.2);
-        color: #2d6a4f;
-        padding: 0.4rem;
-        text-align: center;
+        background-color: rgba(40, 167, 69, 0.08);
         font-size: 0.75rem;
-        font-weight: 600;
-        border-bottom: 1px solid rgba(167, 210, 203, 0.3);
-        position: sticky;
-        top: 60px; /* Adjust based on header height */
-        z-index: 70;
+        text-align: center;
+        padding: 0.25rem;
+        border-bottom: 1px solid rgba(248, 181, 209, 0.2);
     }
 
     .fact-header {
-        background-color: rgba(205, 180, 219, 0.2);
-        color: #6d5a8a;
-        padding: 0.4rem;
-        text-align: center;
+        background-color: rgba(13, 110, 253, 0.08);
         font-size: 0.75rem;
-        font-weight: 600;
-        border-bottom: 1px solid rgba(205, 180, 219, 0.3);
-        position: sticky;
-        top: 60px;
-        z-index: 70;
+        text-align: center;
+        padding: 0.25rem;
+        border-bottom: 1px solid rgba(248, 181, 209, 0.2);
     }
 
-    /* События */
-    .plan-event, .fact-event {
-        position: absolute;
-        left: 1px;
-        right: 1px;
-        border-radius: 3px;
-        padding: 2px 4px;
-        font-size: 0.7rem;
+    .schedule-cell {
+        height: 22px;
+        border-bottom: 1px solid rgba(248, 181, 209, 0.08);
+        cursor: pointer;
+        position: relative;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .schedule-cell:hover {
+        background-color: rgba(248, 181, 209, 0.1);
+        box-shadow: inset 0 0 0 1px rgba(248, 181, 209, 0.3);
+    }
+
+    .schedule-cell.selected {
+        background-color: rgba(248, 181, 209, 0.2);
+        box-shadow: inset 0 0 0 2px rgba(248, 181, 209, 0.6);
+    }
+
+    .plan-event,
+    .fact-event {
+        font-size: 0.65rem;
+        padding: 0.05rem 0.25rem;
+        border-radius: 4px;
+        margin: 1px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        cursor: pointer;
-        border-left: 3px solid;
-        z-index: 10;
-        line-height: 1.2;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        border: 1px solid transparent;
     }
 
     .plan-event {
-        background-color: rgba(167, 210, 203, 0.9);
-        border-color: #2d6a4f;
-        color: #1a4231;
+        background-color: rgba(25, 135, 84, 0.15);
+        border-color: rgba(25, 135, 84, 0.5);
+        color: #198754;
     }
 
     .fact-event {
-        background-color: rgba(205, 180, 219, 0.9);
-        border-color: #6d5a8a;
-        color: #4a3b5e;
+        background-color: rgba(13, 110, 253, 0.15);
+        border-color: rgba(13, 110, 253, 0.5);
+        color: #0d6efd;
     }
 
-    /* Выделение */
-    .plan-column.selected {
-        background-color: rgba(167, 210, 203, 0.5) !important;
-    }
-
-    .fact-column.selected {
-        background-color: rgba(205, 180, 219, 0.5) !important;
-    }
-
-    .current-time-slot {
-        position: relative;
-    }
-    .current-time-slot::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 2px;
-        background-color: #ff5e5e;
-        z-index: 50;
-        pointer-events: none;
-    }
-
-    /* Панель массового редактирования */
     .bulk-edit-panel {
         position: fixed;
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        background: var(--card-bg);
-        padding: 1rem 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        z-index: 1000;
+        background: #fff;
+        border-radius: 999px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        padding: 0.5rem 1rem;
         display: none;
         align-items: center;
-        gap: 15px;
-        border: 1px solid var(--primary-color);
+        gap: 0.75rem;
+        z-index: 2000;
     }
 
-    .bulk-edit-panel.show {
-        display: flex;
-        animation: slideUp 0.3s ease;
+    .bulk-edit-panel .selected-count {
+        font-size: 0.85rem;
+        font-weight: 500;
     }
 
-    @keyframes slideUp {
-        from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-        to { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
-
-    .selected-count {
-        font-weight: 600;
-        color: var(--text-color);
-    }
-
-    /* Сайдбар компоненты */
-    .categories-panel, .productivity-chart, .balance-wheel-container, .quick-actions {
+    .categories-panel {
         background: var(--card-bg);
         border-radius: 15px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(248, 181, 209, 0.1);
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(248, 181, 209, 0.08);
         border: 1px solid rgba(248, 181, 209, 0.15);
     }
 
     .categories-list {
-        max-height: 200px;
+        max-height: 250px;
         overflow-y: auto;
+        padding-right: 4px;
     }
 
-    .category-item {
+    .category-pill {
         display: flex;
         align-items: center;
-        padding: 0.5rem;
-        margin-bottom: 0.5rem;
-        border-radius: 6px;
-        background: #f8f9fa;
-        cursor: pointer;
+        justify-content: space-between;
+        padding: 0.35rem 0.6rem;
+        border-radius: 999px;
+        margin-bottom: 0.3rem;
+        font-size: 0.8rem;
+        background-color: #f8f9fa;
+        border: 1px solid #eee;
     }
 
-    .category-color {
-        width: 15px;
-        height: 15px;
+    .category-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .category-color-dot {
+        width: 10px;
+        height: 10px;
         border-radius: 50%;
-        margin-right: 10px;
+        display: inline-block;
+    }
+
+    .categories-list-empty {
+        text-align: center;
+        font-size: 0.85rem;
+        color: #888;
+    }
+
+    .balance-wheel-container {
+        background: var(--card-bg);
+        border-radius: 15px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(248, 181, 209, 0.08);
+        border: 1px solid rgba(248, 181, 209, 0.15);
     }
 
     .wheel-canvas {
+        width: 100%;
+        height: 260px;
         display: flex;
-        justify-content: center;
         align-items: center;
-        margin-top: 10px;
+        justify-content: center;
+    }
+
+    .wheel-period-selector {
+        font-size: 0.8rem;
+    }
+
+    .quick-actions {
+        background: var(--card-bg);
+        border-radius: 15px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(248, 181, 209, 0.08);
+        border: 1px solid rgba(248, 181, 209, 0.15);
+    }
+
+    .quick-actions h5 {
+        font-size: 0.95rem;
+        margin-bottom: 0.75rem;
     }
 
     .actions-grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
     }
 
     .action-btn {
-        padding: 0.75rem;
-        border-radius: 10px;
-        border: 1px solid #eee;
-        background: #fafafa;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 5px;
+        padding: 0.6rem 0.4rem;
+        border-radius: 10px;
+        border: 1px dashed rgba(248, 181, 209, 0.5);
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.15s ease;
+        background: #fff;
+        text-align: center;
     }
 
     .action-btn:hover {
-        background: #fff0f5;
-        border-color: var(--primary-color);
-        transform: translateY(-2px);
+        background: rgba(248, 181, 209, 0.08);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(248, 181, 209, 0.15);
     }
 
     .action-icon {
-        font-size: 1.2rem;
-        color: var(--primary-color);
+        font-size: 1.3rem;
+        margin-bottom: 0.25rem;
+        color: #f284b5;
     }
 
     .action-text {
         font-size: 0.8rem;
-        font-weight: 600;
+        font-weight: 500;
     }
 
-    @media (max-width: 1200px) {
-        .main-content { flex-direction: column; }
-        .right-sidebar { width: 100%; min-width: auto; }
-        .actions-grid { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 992px) {
+        .main-content {
+            flex-direction: column;
+        }
+
+        .right-sidebar {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .schedule-container {
+            max-height: 60vh;
+        }
     }
 </style>
 {% endblock %}
@@ -345,9 +336,13 @@
                 </div>
 
                 <div class="input-group" style="width: 250px;">
-                    <button class="btn btn-outline-secondary" type="button" onclick="prevWeek()"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-secondary" type="button" onclick="prevWeek()">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
                     <input type="week" class="form-control text-center" id="weekPicker">
-                    <button class="btn btn-outline-secondary" type="button" onclick="nextWeek()"><i class="bi bi-chevron-right"></i></button>
+                    <button class="btn btn-outline-secondary" type="button" onclick="nextWeek()">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
                 </div>
                 
                 <button class="btn btn-outline-primary" type="button" id="currentWeekBtn">Сегодня</button>
@@ -367,7 +362,7 @@
         <div class="selected-count" id="selectedCount">0 выбрано</div>
         <select class="form-select form-select-sm" id="bulkCategorySelect" style="width: 180px;">
             <option value="">Выберите категорию</option>
-            </select>
+        </select>
         <div class="btn-group btn-group-sm">
             <button class="btn btn-success" id="bulkPlanBtn">В План</button>
             <button class="btn btn-primary" id="bulkFactBtn">В Факт</button>
@@ -386,7 +381,10 @@
                             <small id="weekRange">Загрузка дат...</small>
                         </div>
                         <div class="text-end">
-                            <small class="d-block"><span class="badge bg-success">План</span> <span class="badge bg-primary">Факт</span></small>
+                            <small class="d-block">
+                                <span class="badge bg-success">План</span>
+                                <span class="badge bg-primary">Факт</span>
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -413,8 +411,7 @@
                                 {% endfor %}
                             </tr>
                         </thead>
-                        <tbody id="scheduleBody">
-                            </tbody>
+                        <tbody id="scheduleBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -428,8 +425,7 @@
                         <i class="bi bi-plus"></i>
                     </button>
                 </div>
-                <div class="categories-list" id="categoriesList">
-                    </div>
+                <div class="categories-list" id="categoriesList"></div>
             </div>
 
             <div class="balance-wheel-container">
@@ -470,6 +466,7 @@
     </div>
 </div>
 
+<!-- Модалка: сохранить неделю как шаблон -->
 <div class="modal fade" id="saveTemplateModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -493,7 +490,6 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                     <button type="submit" class="btn btn-primary">Сохранить</button>
                 </div>
             </form>
@@ -501,22 +497,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="templatesModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Шаблоны</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="list-group" id="templatesList">
-                    <div class="list-group-item">Нет сохраненных шаблонов</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
+<!-- Модалка: добавление события -->
 <div class="modal fade" id="addEventModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -565,6 +546,7 @@
     </div>
 </div>
 
+<!-- Модалка: новая категория -->
 <div class="modal fade" id="categoryModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -591,6 +573,7 @@
     </div>
 </div>
 
+<!-- Модалка: быстрое событие -->
 <div class="modal fade" id="quickEventModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -632,7 +615,6 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
@@ -640,21 +622,32 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // === КОНФИГУРАЦИЯ ===
+    // === КОНФИГ ===
     const daysCount = {{ days|length }};
-    const currentWeekStart = "{{ days[0].full_date }}"; // Берем дату понедельника из шаблона
-    let categories = []; // Теперь категории будут грузиться из БД
+    let currentWeekIso = "{{ current_week }}";
+    let currentWeekStart = "{{ days[0].full_date }}"; // понедельник
+    let categories = [];
+
+    const weekPicker   = document.getElementById('weekPicker');
+    const weekRangeEl  = document.getElementById('weekRange');
+    const wheelPeriod  = document.getElementById('wheelPeriod');
+
+    if (weekPicker && currentWeekIso) {
+        weekPicker.value = currentWeekIso;
+    }
 
     // === ИНИЦИАЛИЗАЦИЯ ===
     initApp();
 
     async function initApp() {
-        await loadCategories(); // Сначала категории
-        renderScheduleTable();  // Потом сетка
-        loadEvents();           // Потом события
+        await loadCategories();   // 1. категории из БД
+        renderScheduleTable();    // 2. сетка 00:00–23:45
+        loadEvents();             // 3. события недели
+        initCategoryForm();       // 4. создание категории
+        initWeekControls();       // 5. навигация по неделям
     }
 
-    // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+    // Вспомогательная функция cookie (на будущее, если понадобится CSRF)
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -670,66 +663,195 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
 
-    // === ВЗАИМОДЕЙСТВИЕ С СЕРВЕРОМ ===
-
-    // 0. Загрузка КАТЕГОРИЙ (ВАЖНО!)
+    // === КАТЕГОРИИ ===
     async function loadCategories() {
         try {
             const response = await fetch('/api/v1/categories');
             const data = await response.json();
-            categories = data.categories;
+            categories = data.categories || [];
             updateSelectors();
-            console.log("📂 Категории загружены:", categories);
+            renderCategoriesList();
+            console.log('📂 Категории загружены:', categories);
         } catch (e) {
-            console.error("Ошибка загрузки категорий:", e);
+            console.error('Ошибка загрузки категорий:', e);
         }
     }
 
-    // 1. Загрузка событий (ИСПРАВЛЕН URL)
-    function loadEvents() {
-        fetch(`/api/v1/events/week/${currentWeekStart}`) 
-            .then(response => response.json())
-            .then(data => {
-                document.querySelectorAll('.plan-event, .fact-event').forEach(e => e.remove());
-                if (data.events) {
-                    data.events.forEach(event => {
-                        renderEventOnGrid(event);
-                    });
-                    drawBalanceWheel(data.events);
-                }
-            })
-            .catch(error => console.error('Ошибка загрузки событий:', error));
+    function renderCategoriesList() {
+        const list = document.getElementById('categoriesList');
+        if (!list) return;
+
+        list.innerHTML = '';
+
+        if (!categories.length) {
+            const empty = document.createElement('div');
+            empty.className = 'categories-list-empty';
+            empty.textContent = 'Категорий пока нет';
+            list.appendChild(empty);
+            return;
+        }
+
+        categories.forEach(cat => {
+            const item = document.createElement('div');
+            item.className = 'category-pill';
+            const label = document.createElement('div');
+            label.className = 'category-label';
+
+            const dot = document.createElement('span');
+            dot.className = 'category-color-dot';
+            dot.style.backgroundColor = cat.color || '#4361ee';
+
+            const name = document.createElement('span');
+            name.textContent = cat.name;
+
+            label.appendChild(dot);
+            label.appendChild(name);
+
+            const count = document.createElement('span');
+            count.className = 'badge bg-light text-muted';
+            count.textContent = '#';
+
+            item.appendChild(label);
+            item.appendChild(count);
+            list.appendChild(item);
+        });
     }
 
-    // 2. Отрисовка события на сетке
+    function initCategoryForm() {
+        const form = document.getElementById('categoryForm');
+        if (!form) return;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nameInput = document.getElementById('newCatName');
+            const colorInput = document.getElementById('newCatColor');
+
+            const name = nameInput.value.trim();
+            const color = (colorInput.value || '#4361ee').trim();
+
+            if (!name) {
+                alert('Введите название категории');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/v1/categories', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, color })
+                });
+
+                if (resp.status === 409) {
+                    const err = await resp.json().catch(() => ({}));
+                    alert(err.error || 'Категория с таким названием уже существует');
+                    return;
+                }
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    alert('Ошибка создания категории: ' + (err.error || resp.status));
+                    return;
+                }
+
+                const data = await resp.json();
+                if (data.category) {
+                    categories.push(data.category);
+                    updateSelectors();
+                    renderCategoriesList();
+                }
+
+                nameInput.value = '';
+
+                if (window.bootstrap) {
+                    const modalEl = document.getElementById('categoryModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    modal.hide();
+                }
+            } catch (err) {
+                console.error('Ошибка при создании категории:', err);
+                alert('Ошибка сети при создании категории');
+            }
+        });
+    }
+
+    function updateSelectors() {
+        const selects = [
+            document.getElementById('bulkCategorySelect'),
+            document.getElementById('eventCategory'),
+            document.getElementById('quickCategory')
+        ];
+        selects.forEach(sel => {
+            if (!sel) return;
+            sel.innerHTML = '<option value="">Выберите категорию</option>';
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.name;
+                sel.appendChild(opt);
+            });
+        });
+    }
+
+    // === СОБЫТИЯ НЕДЕЛИ ===
+    function loadEvents() {
+        const url = currentWeekIso
+            ? `/api/v1/events/week/${currentWeekIso}`
+            : '/api/v1/events/week';
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const events = data.events || [];
+
+                if (data.week) {
+                    currentWeekStart = data.week.start_date;
+                    if (weekRangeEl) {
+                        const start = new Date(data.week.start_date);
+                        const end   = new Date(data.week.end_date);
+                        const fmt = d => d.toLocaleDateString('ru-RU');
+                        weekRangeEl.textContent = `${fmt(start)} — ${fmt(end)}`;
+                    }
+                }
+
+                // очищаем старые события в ячейках
+                document.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
+
+                events.forEach(renderEventOnGrid);
+                drawBalanceWheel(events);
+            })
+            .catch(e => console.error('Ошибка загрузки событий недели:', e));
+    }
+
     function renderEventOnGrid(event) {
-        // Превращаем ISO дату в строку времени HH:MM
+        if (!event.start_time) return;
+
         const date = new Date(event.start_time);
-        const timeStr = date.getHours().toString().padStart(2, '0') + ':' + 
+        const timeStr = date.getHours().toString().padStart(2, '0') + ':' +
                         date.getMinutes().toString().padStart(2, '0');
-        
-        // Вычисляем индекс дня (0-6)
-        const eventDate = event.start_time.split('T')[0];
+
+        const eventDateStr = event.start_time.split('T')[0];
         const weekStart = new Date(currentWeekStart);
-        const currentEventDate = new Date(eventDate);
+        const currentEventDate = new Date(eventDateStr);
         const dayIndex = Math.round((currentEventDate - weekStart) / (1000 * 60 * 60 * 24));
 
         const selector = `td[data-day="${dayIndex}"][data-time="${timeStr}"][data-type="${event.type}"]`;
         const cell = document.querySelector(selector);
 
         if (cell) {
-            const cat = categories.find(c => c.id == event.category_id) || {name: '?', color: '#ccc'};
+            const cat = categories.find(c => c.id == event.category_id) || { name: '?', color: '#ccc' };
             const div = document.createElement('div');
-            div.className = event.type === 'plan' ? 'plan-event' : 'fact-event';
-            div.style.backgroundColor = cat.color + 'aa';
-            div.style.borderColor = cat.color;
+            div.className = event.type === 'fact' ? 'fact-event' : 'plan-event';
+            div.style.backgroundColor = (cat.color || '#ccc') + 'aa';
+            div.style.borderColor = cat.color || '#ccc';
             div.textContent = cat.name;
             cell.innerHTML = '';
             cell.appendChild(div);
         }
     }
 
-    // 3. Сохранение (ИСПРАВЛЕН URL и формат данных)
+    // Сохранение пачки (план/факт) через /api/v1/web/save_schedule
     function saveBulkEvents(targetType) {
         const catId = document.getElementById('bulkCategorySelect').value;
         if (!catId) {
@@ -747,21 +869,20 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        fetch('/api/v1/web/save_schedule', { 
+        fetch('/api/v1/web/save_schedule', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
                 week_start: currentWeekStart,
-                events: eventsToSave 
+                events: eventsToSave
             })
         })
         .then(response => {
             if (response.ok) {
                 applyBulkVisuals(targetType, catId);
-                loadEvents(); 
+                loadEvents();
             } else {
                 alert('Ошибка сохранения');
             }
@@ -769,8 +890,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => console.error('Error:', error));
     }
 
-    // === СЕТКА И ВЫБОР === (Тут без изменений, просто адаптировано)
-
+    // === СЕТКА 24 часа (00:00–23:45) ===
     function renderScheduleTable() {
         const tbody = document.getElementById('scheduleBody');
         tbody.innerHTML = '';
@@ -778,6 +898,7 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let m = 0; m < 60; m += 15) {
                 const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
                 const row = document.createElement('tr');
+
                 const timeCell = document.createElement('td');
                 timeCell.className = 'time-column';
                 if (m === 0) timeCell.textContent = timeStr;
@@ -792,34 +913,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function createCell(day, time, type) {
-        const cell = document.createElement('td');
-        cell.className = type + '-column';
-        cell.dataset.day = day;
-        cell.dataset.time = time;
-        cell.dataset.type = type;
-        cell.onclick = (e) => toggleSelection(e, cell);
-        return cell;
+    function createCell(dayIndex, timeStr, type) {
+        const td = document.createElement('td');
+        td.className = 'schedule-cell';
+        td.dataset.day = dayIndex;
+        td.dataset.time = timeStr;
+        td.dataset.type = type;
+        td.addEventListener('click', (e) => toggleSelection(e, td));
+        return td;
     }
 
-    function updateSelectors() {
-        const selects = [
-            document.getElementById('bulkCategorySelect'), 
-            document.getElementById('eventCategory'),
-            document.getElementById('quickCategory')
-        ];
-        selects.forEach(sel => {
-            if(!sel) return;
-            sel.innerHTML = '<option value="">Выберите категорию</option>';
-            categories.forEach(cat => {
-                const opt = document.createElement('option');
-                opt.value = cat.id;
-                opt.textContent = cat.name;
-                sel.appendChild(opt);
-            });
-        });
-    }
-
+    // === ВЫБОР ЯЧЕЕК ===
     let selectedCells = new Set();
     const bulkPanel = document.getElementById('bulkEditPanel');
     const selectedCountLabel = document.getElementById('selectedCount');
@@ -849,14 +953,26 @@ document.addEventListener('DOMContentLoaded', function() {
         updateBulkPanel();
     });
 
+    document.getElementById('bulkClearBtn').addEventListener('click', () => {
+        selectedCells.forEach(cell => {
+            cell.innerHTML = '';
+            cell.classList.remove('selected');
+        });
+        selectedCells.clear();
+        updateBulkPanel();
+    });
+
     function applyBulkVisuals(targetType, catId) {
         const category = categories.find(c => c.id == catId);
         selectedCells.forEach(cell => {
-            const div = document.createElement('div');
-            div.className = targetType === 'plan' ? 'plan-event' : 'fact-event';
-            div.style.backgroundColor = category.color + 'aa';
-            div.style.borderColor = category.color;
-            div.textContent = category.name;
+            const div = new DocumentFragment();
+            const bubble = document.createElement('div');
+            bubble.className = targetType === 'fact' ? 'fact-event' : 'plan-event';
+            bubble.style.backgroundColor = category.color + 'aa';
+            bubble.style.borderColor = category.color;
+            bubble.textContent = category.name;
+            div.appendChild(bubble);
+
             cell.innerHTML = '';
             cell.appendChild(div);
             cell.classList.remove('selected');
@@ -865,28 +981,91 @@ document.addEventListener('DOMContentLoaded', function() {
         updateBulkPanel();
     }
 
+    // === КОЛЕСО БАЛАНСА ===
     function drawBalanceWheel(eventsData) {
-        const ctx = document.getElementById('balanceWheel').getContext('2d');
-        if (window.myChart) window.myChart.destroy();
-        
-        // Считаем количество слотов по каждой категории
-        const stats = categories.map(cat => {
-            return eventsData.filter(e => e.category_id == cat.id).length;
-        });
+        const canvas = document.getElementById('balanceWheel');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (window.balanceWheelChart) {
+            window.balanceWheelChart.destroy();
+        }
 
-        window.myChart = new Chart(ctx, {
+        const stats = categories.map(cat =>
+            eventsData.filter(e => e.category_id == cat.id).length
+        );
+
+        window.balanceWheelChart = new Chart(ctx, {
             type: 'polarArea',
             data: {
                 labels: categories.map(c => c.name),
                 datasets: [{
                     data: stats,
-                    backgroundColor: categories.map(c => c.color + '80'),
+                    backgroundColor: categories.map(c => (c.color || '#4361ee') + '80'),
                     borderWidth: 1
                 }]
             },
-            options: { responsive: true, scales: { r: { display: false } } }
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'right' } },
+                scales: { r: { display: false } }
+            }
         });
     }
+
+    if (wheelPeriod) {
+        wheelPeriod.addEventListener('change', () => {
+            // Пока просто перерисовываем текущую неделю
+            loadEvents();
+        });
+    }
+
+    // === УПРАВЛЕНИЕ НЕДЕЛЕЙ ===
+    function initWeekControls() {
+        if (weekPicker) {
+            weekPicker.addEventListener('change', () => {
+                if (!weekPicker.value) return;
+                currentWeekIso = weekPicker.value;
+                loadEvents();
+            });
+        }
+
+        const todayBtn = document.getElementById('currentWeekBtn');
+        if (todayBtn) {
+            todayBtn.addEventListener('click', () => {
+                currentWeekIso = "{{ current_week }}";
+                if (weekPicker) weekPicker.value = currentWeekIso;
+                loadEvents();
+            });
+        }
+    }
+
+    function changeWeek(delta) {
+        if (!currentWeekIso) return;
+        const parts = currentWeekIso.split('-W');
+        if (parts.length !== 2) return;
+        let year = parseInt(parts[0], 10);
+        let week = parseInt(parts[1], 10);
+
+        week += delta;
+        if (week < 1) {
+            year -= 1;
+            week = 52; // упрощенно
+        } else if (week > 53) {
+            year += 1;
+            week = 1;
+        }
+
+        currentWeekIso = `${year}-W${week.toString().padStart(2, '0')}`;
+        if (weekPicker) weekPicker.value = currentWeekIso;
+        loadEvents();
+    }
+
+    function prevWeek() { changeWeek(-1); }
+    function nextWeek() { changeWeek(1); }
+
+    // Делаем функции глобальными для onclick в HTML
+    window.prevWeek = prevWeek;
+    window.nextWeek = nextWeek;
 });
 </script>
 {% endblock %}
