@@ -9,14 +9,14 @@ login_manager = LoginManager()
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(name)
     app.config.from_object('config.Config')
     
     # Инициализируем расширения
     db.init_app(app)
     login_manager.init_app(app)
     
-    # Устанавливаем login view
+    # Куда редиректить неавторизованного пользователя
     login_manager.login_view = 'auth.login'
     
     # Регистрация blueprints
@@ -33,10 +33,10 @@ def create_app():
     
     with app.app_context():
         try:
-            # 1. Создаём таблицы (если их ещё нет)
+            # 1. Создаем все таблицы по моделям (то, чего нет – создастся)
             db.create_all()
             
-            # 2. Грубая "миграция" для categories.description (у тебя уже была)
+            # 2. "Миграция" для categories.description (у тебя уже была)
             try:
                 check_sql = text("""
                     SELECT column_name 
@@ -53,57 +53,28 @@ def create_app():
                     print("✅ Column 'description' added to categories")
             except Exception as e:
                 db.session.rollback()
-                print(f"ℹ️ Note: Description column check skipped: {e}")
+                print(f"ℹ️ Note: categories.description migration skipped: {e}")
             
-            # 3. Грубая "миграция" для таблицы templates
+            # 3. НОВАЯ "миграция" для events.description
             try:
-                # Смотрим, есть ли вообще таблица templates и какие у неё колонки
-                cols_result = db.session.execute(text("""
+                check_sql = text("""
                     SELECT column_name 
                     FROM information_schema.columns 
-                    WHERE table_name='templates'
-                """)).fetchall()
+                    WHERE table_name='events' AND column_name='description'
+                """)
+                result = db.session.execute(check_sql).fetchone()
                 
-                col_names = {row[0] for row in cols_result}
-                
-                if col_names:
-                    # Если был старый столбец data — уберём
-                    if 'data' in col_names:
-                        try:
-                            db.session.execute(text("ALTER TABLE templates DROP COLUMN data"))
-                            print("✅ Dropped old 'data' column from templates")
-                        except Exception as e:
-                            print(f"ℹ️ Could not drop 'data' column (maybe already removed): {e}")
-                    
-                    # Добавляем нужные колонки, если их нет
-                    if 'category_id' not in col_names:
-                        db.session.execute(
-                            text("ALTER TABLE templates ADD COLUMN category_id INTEGER")
-                        )
-                        print("✅ Column 'category_id' added to templates")
-                    
-                    if 'duration_minutes' not in col_names:
-                        db.session.execute(
-                            text("ALTER TABLE templates ADD COLUMN duration_minutes INTEGER DEFAULT 60")
-                        )
-                        print("✅ Column 'duration_minutes' added to templates")
-                    
-                    if 'description' not in col_names:
-                        db.session.execute(
-                            text("ALTER TABLE templates ADD COLUMN description TEXT")
-                        )
-                        print("✅ Column 'description' added to templates")
-                    
+                if not result:
+                    db.session.execute(
+                        text("ALTER TABLE events ADD COLUMN description TEXT")
+                    )
                     db.session.commit()
-                else:
-                    # Если cols_result пустой — значит таблицы нет, её создаст create_all по новой модели
-                    print("ℹ️ Table 'templates' not found in information_schema (will be created by create_all if needed)")
-            
+                    print("✅ Column 'description' added to events")
             except Exception as e:
                 db.session.rollback()
-                print(f"ℹ️ Templates migration skipped: {e}")
+                print(f"ℹ️ Note: events.description migration skipped: {e}")
             
-            # 4. user_loader
+            # 4. user_loader для Flask-Login
             from app.models import User
             
             @login_manager.user_loader
