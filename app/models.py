@@ -3,8 +3,9 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
 
+
 class User(UserMixin, db.Model):
-    __tablename__ = 'users'
+    tablename = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), nullable=False)
@@ -12,18 +13,18 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    def set_password(self, password):
+    def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
     
-    def check_password(self, password):
+    def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password) if self.password_hash else False
     
-    def __repr__(self):
+    def repr(self) -> str:
         return f'<User {self.username}>'
 
 
 class Category(db.Model):
-    __tablename__ = 'categories'
+    tablename = 'categories'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -32,11 +33,11 @@ class Category(db.Model):
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    __table_args__ = (
+    table_args = (
         db.UniqueConstraint('user_id', 'name', name='unique_category_per_user'),
     )
     
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             'id': self.id,
             'name': self.name,
@@ -47,14 +48,16 @@ class Category(db.Model):
 
 
 class Event(db.Model):
-    __tablename__ = 'events'
+    tablename = 'events'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
-    type = db.Column(db.String(10), nullable=False, default='plan') # 'plan' или 'fact'
+    # 'plan' или 'fact'
+    type = db.Column(db.String(10), nullable=False, default='plan')
+    # 'web' или 'telegram'
     source = db.Column(db.String(10), nullable=False, default='web')
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -62,7 +65,7 @@ class Event(db.Model):
     # Отношение к категории, чтобы получать цвет и имя сразу
     category = db.relationship('Category', backref='events')
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             'id': self.id,
             'category_id': self.category_id,
@@ -76,26 +79,30 @@ class Event(db.Model):
 
 
 class Template(db.Model):
+    """
+    Шаблон события пользователя.
+    Привязан к категории и имеет длительность, описание и владельца.
+    """
     tablename = 'templates'
     
     id = db.Column(db.Integer, primary_key=True)
     
-    # пользователь, которому принадлежит шаблон
+    # Пользователь, которому принадлежит шаблон
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
-    # название шаблона
+    # Название шаблона
     name = db.Column(db.String(100), nullable=False)
     
-    # категория, с которой связан шаблон
+    # Категория, с которой связан шаблон
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     
-    # длительность по умолчанию (в минутах)
+    # Длительность по умолчанию (в минутах)
     duration_minutes = db.Column(db.Integer, nullable=False, default=60)
     
-    # описание (опционально)
+    # Описание (необязательно)
     description = db.Column(db.Text)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # связь с Category, чтобы в шаблонах писать template.category.name / .color
+    # Связь с Category, чтобы в шаблонах писать template.category.name / template.category.color
     category = db.relationship('Category', backref='templates')
