@@ -76,10 +76,26 @@ class Event(db.Model):
 
 
 class Template(db.Model):
-    __tablename__ = 'templates'
+    tablename = 'templates'
     
     id = db.Column(db.Integer, primary_key=True)
+    
+    # пользователь, которому принадлежит шаблон
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # название шаблона
     name = db.Column(db.String(100), nullable=False)
-    data = db.Column(db.JSON, nullable=False) # Храним JSON структуры шаблона
+    
+    # категория, с которой связан шаблон
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
+    
+    # длительность по умолчанию (в минутах)
+    duration_minutes = db.Column(db.Integer, nullable=False, default=60)
+    
+    # описание (опционально)
+    description = db.Column(db.Text)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # связь с Category, чтобы в шаблонах писать template.category.name / .color
+    category = db.relationship('Category', backref='templates')
