@@ -15,7 +15,7 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
 
-    # Импорты и регистрация blueprints
+    # Импорт blueprintов
     from app.routes.main_routes import main_bp
     from app.routes.auth_routes import auth_bp
     from app.routes.api_routes import api_bp
@@ -28,21 +28,16 @@ def create_app():
     app.register_blueprint(schedule_api_bp, url_prefix='/api/v1')
 
     with app.app_context():
-        # ВАЖНО: импорт моделей внутри контекста приложения
         from app.models import User
 
-        # Создаём таблицы, если их ещё нет
+        # Создаем недостающие таблицы
         db.create_all()
 
-        # --- МИГРАЦИИ ЧЕРЕЗ ALTER TABLE ---
-
-        # 1) categories.description (то, что уже было)
+        # MIGRATION: categories.description
         try:
             result = db.session.execute(text("""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'categories'
-                  AND column_name = 'description'
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='categories' AND column_name='description'
             """)).fetchone()
 
             if not result:
@@ -50,18 +45,17 @@ def create_app():
                     text("ALTER TABLE categories ADD COLUMN description TEXT")
                 )
                 db.session.commit()
-                print("✅ Column 'description' added to categories")
+                print("✅ Added categories.description")
+
         except Exception as e:
             db.session.rollback()
-            print(f"⚠️ Migration error (categories.description): {e}")
+            print(f"⚠️ Failed to add categories.description: {e}")
 
-        # 2) events.description — ДОБАВЛЯЕМ ЭТУ ЧАСТЬ
+        # MIGRATION: events.description
         try:
             result = db.session.execute(text("""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'events'
-                  AND column_name = 'description'
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='events' AND column_name='description'
             """)).fetchone()
 
             if not result:
@@ -69,14 +63,16 @@ def create_app():
                     text("ALTER TABLE events ADD COLUMN description TEXT")
                 )
                 db.session.commit()
-                print("✅ Column 'description' added to events")
+                print("✅ Added events.description")
+
         except Exception as e:
             db.session.rollback()
-            print(f"⚠️ Migration error (events.description): {e}")
+            print(f"⚠️ Failed to add events.description: {e}")
 
-        # Лоадер пользователя для Flask-Login
+        # Flask-Login user loader
         @login_manager.user_loader
         def load_user(user_id):
             return User.query.get(int(user_id))
 
     return app
+    
