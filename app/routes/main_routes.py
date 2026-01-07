@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
-from flask_login import current_user
+from flask_login import current_user, login_required
 from app import db
 from app.models import User, Category, Event, Template
-from app.auth import login_required
+from app.auth import login_required  # если у тебя там своя обёртка
 from datetime import datetime, timedelta
 import json
 
@@ -12,7 +12,7 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/')
 @login_required
 def index():
-    """Главная страница - теперь это расписание"""
+    """Главная страница – перенаправляем на расписание"""
     return redirect(url_for('main.schedule'))
 
 
@@ -22,26 +22,26 @@ def schedule():
     """Страница с недельным расписанием и графиками"""
     today = datetime.now().date()
     start_of_week = today - timedelta(days=today.weekday())
-    
-    # Создаем список дней недели
+
     days = []
     for i in range(7):
         day_date = start_of_week + timedelta(days=i)
         days.append({
-            'name': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 
+            'name': ['Понедельник', 'Вторник', 'Среда', 'Четверг',
                      'Пятница', 'Суббота', 'Воскресенье'][i],
             'date': day_date.strftime('%d.%m.%Y'),
             'full_date': day_date.strftime('%Y-%m-%d'),
             'short_name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i]
         })
-    
-    # Формат для input type="week"
+
     week_number = today.isocalendar()[1]
     current_week = f"{today.year}-W{week_number:02d}"
-    
-    return render_template('schedule.html', 
-                           days=days, 
-                           current_week=current_week)
+
+    return render_template(
+        'schedule.html',
+        days=days,
+        current_week=current_week
+    )
 
 
 @main_bp.route('/profile')
@@ -51,6 +51,8 @@ def profile():
     return render_template('profile.html', user=current_user)
 
 
+# ========= КАТЕГОРИИ =========
+
 @main_bp.route('/categories', methods=['GET', 'POST'])
 @login_required
 def manage_categories():
@@ -58,38 +60,38 @@ def manage_categories():
     if request.method == 'POST':
         name = request.form.get('name')
         color = request.form.get('color', '#007bff')
-        
+
         if not name:
             flash('Название категории обязательно', 'danger')
             return redirect(url_for('main.manage_categories'))
-        
-        # Проверяем уникальность для этого пользователя
+
         existing = Category.query.filter_by(
-            user_id=current_user.id, 
+            user_id=current_user.id,
             name=name
         ).first()
-        
+
         if existing:
             flash('Категория с таким названием уже существует', 'warning')
             return redirect(url_for('main.manage_categories'))
-        
+
         category = Category(
             name=name,
             color=color,
             user_id=current_user.id
         )
-        
+
         db.session.add(category)
         db.session.commit()
-        
+
         flash(f'Категория "{name}" создана!', 'success')
-        # Был redirect на main.dashboard, которого нет — фикс:
+        # ⬇️ возвращаемся на список категорий
         return redirect(url_for('main.manage_categories'))
-    
-    # все категории пользователя
+
     categories = Category.query.filter_by(user_id=current_user.id).all()
     return render_template('categories.html', categories=categories)
 
+
+# ========= СОБЫТИЯ =========
 
 @main_bp.route('/events', methods=['GET', 'POST'])
 @login_required
@@ -101,49 +103,51 @@ def manage_events():
         start_time = request.form.get('start_time')
         end_time = request.form.get('end_time')
         description = request.form.get('description', '')
-        
-        # Валидация
+
+        # Проверяем, что категория принадлежит пользователю
         category = Category.query.filter_by(
-            id=category_id, 
+            id=category_id,
             user_id=current_user.id
         ).first()
-        
+
         if not category:
             flash('Выберите корректную категорию', 'danger')
             return redirect(url_for('main.manage_events'))
-        
+
         try:
+            # HTML datetime-local даёт "YYYY-MM-DDTHH:MM"
             start_dt = datetime.fromisoformat(start_time.replace('T', ' '))
             end_dt = datetime.fromisoformat(end_time.replace('T', ' '))
-            
+
             if end_dt <= start_dt:
                 flash('Время окончания должно быть позже времени начала', 'danger')
                 return redirect(url_for('main.manage_events'))
-            
+
             event = Event(
                 user_id=current_user.id,
                 category_id=category_id,
                 type=event_type,
                 start_time=start_dt,
                 end_time=end_dt,
-                source='web',
-                description=description
+                source='web'
             )
-            
+
             db.session.add(event)
             db.session.commit()
-            
+
             flash('Событие успешно добавлено!', 'success')
-            return redirect(url_for('main.manage_events'))
-            
+            # ⬇️ после добавления события логично вернуться на расписание
+            return redirect(url_for('main.schedule'))
+
         except ValueError:
             flash('Неверный формат времени', 'danger')
             return redirect(url_for('main.manage_events'))
-    
-    # показать форму с категориями пользователя
+
     categories = Category.query.filter_by(user_id=current_user.id).all()
     return render_template('events.html', categories=categories)
 
+
+# ========= ШАБЛОНЫ =========
 
 @main_bp.route('/templates', methods=['GET', 'POST'])
 @login_required
@@ -154,21 +158,20 @@ def manage_templates():
         category_id = request.form.get('category_id')
         duration_minutes = request.form.get('duration_minutes', 60)
         description = request.form.get('description', '')
-        
+
         if not name or not category_id:
             flash('Название и категория обязательны', 'danger')
             return redirect(url_for('main.manage_templates'))
-        
-        # Проверяем, что категория принадлежит пользователю
+
         category = Category.query.filter_by(
-            id=category_id, 
+            id=category_id,
             user_id=current_user.id
         ).first()
-        
+
         if not category:
             flash('Выберите корректную категорию', 'danger')
             return redirect(url_for('main.manage_templates'))
-        
+
         template = Template(
             name=name,
             category_id=category_id,
@@ -176,22 +179,25 @@ def manage_templates():
             description=description,
             user_id=current_user.id
         )
-        
+
         db.session.add(template)
         db.session.commit()
-        
+
         flash(f'Шаблон "{name}" создан!', 'success')
-        # Был redirect на dashboard — меняем на список шаблонов
+        # ⬇️ после создания шаблона остаёмся на странице шаблонов
         return redirect(url_for('main.manage_templates'))
-    
-    # Получаем все шаблоны пользователя
+
     templates = Template.query.filter_by(user_id=current_user.id).all()
     categories = Category.query.filter_by(user_id=current_user.id).all()
-    
-    return render_template('templates.html', 
-                           templates=templates, 
-                           categories=categories)
 
+    return render_template(
+        'templates.html',
+        templates=templates,
+        categories=categories
+    )
+
+
+# ========= СТАТИСТИКА / API ДЛЯ DASHBOARD =========
 
 @main_bp.route('/api/my/stats')
 @login_required
@@ -199,7 +205,7 @@ def api_my_stats():
     """Статистика текущего пользователя"""
     today = datetime.utcnow().date()
     tomorrow = today + timedelta(days=1)
-    
+
     return jsonify({
         'user': {
             'id': current_user.id,
@@ -226,14 +232,13 @@ def api_my_stats():
 @login_required
 def api_my_events():
     """События текущего пользователя с фильтрацией"""
-    # Параметры фильтрации
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     category_id = request.args.get('category_id')
     event_type = request.args.get('type')
-    
+
     query = Event.query.filter_by(user_id=current_user.id)
-    
+
     if start_date:
         query = query.filter(Event.start_time >= datetime.fromisoformat(start_date))
     if end_date:
@@ -242,9 +247,9 @@ def api_my_events():
         query = query.filter(Event.category_id == category_id)
     if event_type:
         query = query.filter(Event.type == event_type)
-    
+
     events = query.order_by(Event.start_time.desc()).limit(100).all()
-    
+
     return jsonify([{
         'id': e.id,
         'category': e.category.name,
