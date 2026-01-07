@@ -6,7 +6,7 @@ from app.auth import login_required
 from datetime import datetime, timedelta
 import json
 
-main_bp = Blueprint('main', name)
+main_bp = Blueprint('main', __name__)
 
 
 @main_bp.route('/')
@@ -65,7 +65,7 @@ def manage_categories():
         
         # Проверяем уникальность для этого пользователя
         existing = Category.query.filter_by(
-            user_id=current_user.id,
+            user_id=current_user.id, 
             name=name
         ).first()
         
@@ -83,13 +83,15 @@ def manage_categories():
         db.session.commit()
         
         flash(f'Категория "{name}" создана!', 'success')
-        # 👉 Возвращаемся на страницу категорий (а не на несуществующий dashboard)
+        # Был redirect на main.dashboard, которого нет — фикс:
         return redirect(url_for('main.manage_categories'))
     
     # все категории пользователя
     categories = Category.query.filter_by(user_id=current_user.id).all()
     return render_template('categories.html', categories=categories)
-    @main_bp.route('/events', methods=['GET', 'POST'])
+
+
+@main_bp.route('/events', methods=['GET', 'POST'])
 @login_required
 def manage_events():
     """Управление событиями пользователя"""
@@ -102,7 +104,7 @@ def manage_events():
         
         # Валидация
         category = Category.query.filter_by(
-            id=category_id,
+            id=category_id, 
             user_id=current_user.id
         ).first()
         
@@ -132,7 +134,6 @@ def manage_events():
             db.session.commit()
             
             flash('Событие успешно добавлено!', 'success')
-            # 👉 Логично вернуться на страницу событий
             return redirect(url_for('main.manage_events'))
             
         except ValueError:
@@ -160,7 +161,7 @@ def manage_templates():
         
         # Проверяем, что категория принадлежит пользователю
         category = Category.query.filter_by(
-            id=category_id,
+            id=category_id, 
             user_id=current_user.id
         ).first()
         
@@ -180,18 +181,17 @@ def manage_templates():
         db.session.commit()
         
         flash(f'Шаблон "{name}" создан!', 'success')
-        # 👉 Возвращаемся на страницу шаблонов
+        # Был redirect на dashboard — меняем на список шаблонов
         return redirect(url_for('main.manage_templates'))
     
     # Получаем все шаблоны пользователя
     templates = Template.query.filter_by(user_id=current_user.id).all()
     categories = Category.query.filter_by(user_id=current_user.id).all()
     
-    return render_template(
-        'templates.html',
-        templates=templates,
-        categories=categories
-    )
+    return render_template('templates.html', 
+                           templates=templates, 
+                           categories=categories)
+
 
 @main_bp.route('/api/my/stats')
 @login_required
