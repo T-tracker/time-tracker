@@ -1,18 +1,20 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
-from flask_login import current_user, login_required
+from flask_login import current_user
 from app import db
 from app.models import User, Category, Event, Template
 from app.auth import login_required
 from datetime import datetime, timedelta
 import json
 
-main_bp = Blueprint('main', __name__)
+main_bp = Blueprint('main', name)
+
 
 @main_bp.route('/')
 @login_required
 def index():
     """Главная страница - теперь это расписание"""
     return redirect(url_for('main.schedule'))
+
 
 @main_bp.route('/schedule')
 @login_required
@@ -27,7 +29,7 @@ def schedule():
         day_date = start_of_week + timedelta(days=i)
         days.append({
             'name': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 
-                    'Пятница', 'Суббота', 'Воскресенье'][i],
+                     'Пятница', 'Суббота', 'Воскресенье'][i],
             'date': day_date.strftime('%d.%m.%Y'),
             'full_date': day_date.strftime('%Y-%m-%d'),
             'short_name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i]
@@ -38,16 +40,16 @@ def schedule():
     current_week = f"{today.year}-W{week_number:02d}"
     
     return render_template('schedule.html', 
-                          days=days, 
-                          current_week=current_week)
+                           days=days, 
+                           current_week=current_week)
 
-# ... остальные функции (profile, manage_categories и т.д.) оставьте без изменений
 
 @main_bp.route('/profile')
 @login_required
 def profile():
     """Страница профиля пользователя"""
     return render_template('profile.html', user=current_user)
+
 
 @main_bp.route('/categories', methods=['GET', 'POST'])
 @login_required
@@ -63,7 +65,7 @@ def manage_categories():
         
         # Проверяем уникальность для этого пользователя
         existing = Category.query.filter_by(
-            user_id=current_user.id, 
+            user_id=current_user.id,
             name=name
         ).first()
         
@@ -81,13 +83,13 @@ def manage_categories():
         db.session.commit()
         
         flash(f'Категория "{name}" создана!', 'success')
+        # 👉 Возвращаемся на страницу категорий (а не на несуществующий dashboard)
         return redirect(url_for('main.manage_categories'))
     
     # все категории пользователя
     categories = Category.query.filter_by(user_id=current_user.id).all()
     return render_template('categories.html', categories=categories)
-
-@main_bp.route('/events', methods=['GET', 'POST'])
+    @main_bp.route('/events', methods=['GET', 'POST'])
 @login_required
 def manage_events():
     """Управление событиями пользователя"""
@@ -100,7 +102,7 @@ def manage_events():
         
         # Валидация
         category = Category.query.filter_by(
-            id=category_id, 
+            id=category_id,
             user_id=current_user.id
         ).first()
         
@@ -122,14 +124,16 @@ def manage_events():
                 type=event_type,
                 start_time=start_dt,
                 end_time=end_dt,
-                source='web'
+                source='web',
+                description=description
             )
             
             db.session.add(event)
             db.session.commit()
             
             flash('Событие успешно добавлено!', 'success')
-            return redirect(url_for('main.dashboard'))
+            # 👉 Логично вернуться на страницу событий
+            return redirect(url_for('main.manage_events'))
             
         except ValueError:
             flash('Неверный формат времени', 'danger')
@@ -138,6 +142,7 @@ def manage_events():
     # показать форму с категориями пользователя
     categories = Category.query.filter_by(user_id=current_user.id).all()
     return render_template('events.html', categories=categories)
+
 
 @main_bp.route('/templates', methods=['GET', 'POST'])
 @login_required
@@ -155,7 +160,7 @@ def manage_templates():
         
         # Проверяем, что категория принадлежит пользователю
         category = Category.query.filter_by(
-            id=category_id, 
+            id=category_id,
             user_id=current_user.id
         ).first()
         
@@ -175,16 +180,19 @@ def manage_templates():
         db.session.commit()
         
         flash(f'Шаблон "{name}" создан!', 'success')
-        return redirect(url_for('main.dashboard'))
+        # 👉 Возвращаемся на страницу шаблонов
+        return redirect(url_for('main.manage_templates'))
     
     # Получаем все шаблоны пользователя
     templates = Template.query.filter_by(user_id=current_user.id).all()
     categories = Category.query.filter_by(user_id=current_user.id).all()
     
-    return render_template('templates.html', 
-                         templates=templates, 
-                         categories=categories)
-    
+    return render_template(
+        'templates.html',
+        templates=templates,
+        categories=categories
+    )
+
 @main_bp.route('/api/my/stats')
 @login_required
 def api_my_stats():
@@ -212,6 +220,7 @@ def api_my_stats():
             }
         }
     })
+
 
 @main_bp.route('/api/my/events')
 @login_required
