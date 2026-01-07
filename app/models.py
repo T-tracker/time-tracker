@@ -5,7 +5,7 @@ from app import db
 
 
 class User(UserMixin, db.Model):
-    tablename = 'users'
+    __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), nullable=False)
@@ -13,18 +13,18 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    def set_password(self, password: str) -> None:
+    def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     
-    def check_password(self, password: str) -> bool:
+    def check_password(self, password):
         return check_password_hash(self.password_hash, password) if self.password_hash else False
     
-    def repr(self) -> str:
+    def __repr__(self):
         return f'<User {self.username}>'
 
 
 class Category(db.Model):
-    tablename = 'categories'
+    __tablename__ = 'categories'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -33,11 +33,11 @@ class Category(db.Model):
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    table_args = (
+    __table_args__ = (
         db.UniqueConstraint('user_id', 'name', name='unique_category_per_user'),
     )
     
-    def to_dict(self) -> dict:
+    def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
@@ -48,24 +48,22 @@ class Category(db.Model):
 
 
 class Event(db.Model):
-    tablename = 'events'
+    __tablename__ = 'events'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
-    # 'plan' или 'fact'
-    type = db.Column(db.String(10), nullable=False, default='plan')
-    # 'web' или 'telegram'
-    source = db.Column(db.String(10), nullable=False, default='web')
+    type = db.Column(db.String(10), nullable=False, default='plan')  # 'plan' или 'fact'
+    source = db.Column(db.String(10), nullable=False, default='web')  # 'web' или 'telegram'
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Отношение к категории, чтобы получать цвет и имя сразу
     category = db.relationship('Category', backref='events')
 
-    def to_dict(self) -> dict:
+    def to_dict(self):
         return {
             'id': self.id,
             'category_id': self.category_id,
@@ -83,7 +81,7 @@ class Template(db.Model):
     Шаблон события пользователя.
     Привязан к категории и имеет длительность, описание и владельца.
     """
-    tablename = 'templates'
+    __tablename__ = 'templates'
     
     id = db.Column(db.Integer, primary_key=True)
     
