@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block title %}Расписание{% endblock %}
 
 {% block extra_css %}
@@ -441,10 +440,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- ДАННЫЕ И СОСТОЯНИЕ ---
+    // --- КОНФИГ ---
     const daysCount = {{ days | length }};
-    let currentWeekIso = "{{ current_week }}";            // формата YYYY-Www
-    let currentWeekStart = "{{ days[0].full_date }}";     // понедельник недели (YYYY-MM-DD)
+    let currentWeekIso = "{{ current_week }}";          // YYYY-Www
+    let currentWeekStart = "{{ days[0].full_date }}";   // понедельник недели (YYYY-MM-DD)
+    const SLOT_MINUTES = 15;                            // шаг сетки = 15 минут
+
     let categories = [];
     let currentEvents = [];
     let balanceChart = null;
@@ -456,13 +457,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const balanceCanvas = document.getElementById('balanceWheel');
     const balanceEmptyHint = document.getElementById('balanceEmptyHint');
 
-    // --- ВСПОМОГАТЕЛЬНОЕ: конвертация недели <-> понедельник ---
+    // ==== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====
+
     function weekToMondayDateStr(weekStr) {
         const [yearStr, wStr] = weekStr.split('-W');
         const year = parseInt(yearStr, 10);
         const week = parseInt(wStr, 10);
         const simple = new Date(year, 0, 1 + (week - 1) * 7);
-        const dayOfWeek = simple.getDay() || 7;
+        const dayOfWeek = simple.getDay() || 7; // 1..7, где 1 — понедельник
         if (dayOfWeek !== 1) {
             simple.setDate(simple.getDate() - (dayOfWeek - 1));
         }
@@ -479,7 +481,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${target.getUTCFullYear()}-W${weekNo.toString().padStart(2,'0')}`;
     }
 
-    // --- Обновление заголовка дней при смене недели ---
+    // Локальный ISO без часового пояса: YYYY-MM-DDTHH:MM:SS
+    function formatLocalDateTime(date) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        const year = date.getFullYear();
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+        return `${year}-${month}-${day}T${hours}:${minutes}:00`;
+    }
+
+    // Обновление заголовка дней при смене недели
     function updateHeaderDates() {
         const headers = document.querySelectorAll('.day-column-header');
         if (!headers.length || !currentWeekStart) return;
@@ -496,11 +509,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- РЕНДЕР СЕТКИ (00:00 - 23:45, шаг 15 минут) ---
+    // ==== РЕНДЕР СЕТКИ (00:00–23:45, шаг 15 минут) ====
+
     function renderScheduleTable() {
         scheduleBody.innerHTML = '';
         for (let h = 0; h < 24; h++) {
-            for (let m = 0; m < 60; m += 15) {
+            for (let m = 0; m < 60; m += SLOT_MINUTES) {
                 const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
                 const row = document.createElement('tr');
 
@@ -530,13 +544,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handleCellClick(event, cell) {
         if (event.target.closest('.plan-event, .fact-event')) {
-            return; // сюда можно повесить редактирование
+            // здесь можно будет сделать редактирование существующего события
+            return;
         }
         selectedCell = cell;
         openAddEventForm(cell);
     }
 
-    // --- API: категории ---
+    // ==== КАТЕГОРИИ ====
 
     async function loadCategories() {
         try {
@@ -624,10 +639,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- API: события ---
+    // ==== СОБЫТИЯ ====
 
     function loadEvents() {
-        // ВАЖНО: используем ISO-неделю, как ожидает бэкенд: /events/week/YYYY-Www
         const url = currentWeekIso
             ? `/api/v1/events/week/${currentWeekIso}`
             : '/api/v1/events/week';
@@ -635,10 +649,10 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(url)
             .then(response => response.json())
             .then(data => {
+                // очищаем старые
                 document.querySelectorAll('.plan-event, .fact-event').forEach(e => e.remove());
 
                 if (data.week && data.week.start_date) {
-                    // обновляем дату понедельника по данным сервера
                     currentWeekStart = data.week.start_date;
                     updateHeaderDates();
                 }
@@ -708,8 +722,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const payload = {
             category_id: categoryId,
-            start_time: start.toISOString(),
-            end_time: end.toISOString(),
+            start_time: formatLocalDateTime(start),    // ВАЖНО: без Z / таймзоны
+            end_time: formatLocalDateTime(end),
             type: type,
             source: 'web',
             description: description
@@ -732,7 +746,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadEvents();
     }
 
-    // --- Колесо баланса (ТОЛЬКО ФАКТ) ---
+    // ==== КОЛЕСО БАЛАНСА (Только ФАКТ) ====
 
     function drawBalanceWheel(events) {
         const factEvents = (events || []).filter(e => e.type === 'fact');
@@ -818,7 +832,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- МОДАЛ СОБЫТИЯ ---
+    // ==== МОДАЛ СОБЫТИЯ ====
 
     function openAddEventForm(cell) {
         const dayIndex = parseInt(cell.dataset.day, 10);
@@ -834,7 +848,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const start = new Date(baseDate);
         start.setHours(h, m, 0, 0);
 
-        const end = new Date(start.getTime() + 60 * 60000);
+        // ВАЖНО: длительность по умолчанию = размер ячейки (15 минут), а не час
+        const end = new Date(start.getTime() + SLOT_MINUTES * 60000);
 
         const startDateInput = document.getElementById('startDate');
         const startTimeInput = document.getElementById('startTime');
@@ -855,7 +870,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.show();
     }
 
-    // --- ПЕРЕКЛЮЧЕНИЕ НЕДЕЛЬ ---
+    // ==== ПЕРЕКЛЮЧЕНИЕ НЕДЕЛЬ ====
 
     function refreshWeekFromPicker() {
         const val = weekPicker.value;
@@ -891,7 +906,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     weekPicker.addEventListener('change', refreshWeekFromPicker);
 
-    // --- СВЯЗКА ФОРМ / МОДАЛОВ ---
+    // ==== СВЯЗКА ФОРМ / МОДАЛОВ ====
 
     document.getElementById('addEventForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -905,11 +920,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('categoryForm').addEventListener('submit', createCategory);
 
-    // --- ИНИЦИАЛИЗАЦИЯ ---
+    // ==== ИНИЦИАЛИЗАЦИЯ ====
 
     (async function init() {
         await loadCategories();
-        // пересчитаем текущее Monday на всякий случай из ISO-недели
         currentWeekStart = weekToMondayDateStr(currentWeekIso);
         renderScheduleTable();
         updateHeaderDates();
