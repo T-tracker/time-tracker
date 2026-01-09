@@ -1,66 +1,95 @@
 from datetime import datetime, timedelta
 import math
 
+# Сдвиг относительно UTC.
+# Сейчас у тебя отставание ровно на 3 часа, поэтому +3.
+# Если вдруг поменяешь часовой пояс – поправь это число.
+LOCAL_UTC_OFFSET_HOURS = 3
+
+
+def get_local_now() -> datetime:
+    """
+    Текущее ЛОКАЛЬНОЕ время пользователя.
+    Сервер обычно живёт в UTC, поэтому берём utcnow и смещаем.
+    Возвращаем naive datetime (без таймзоны), чтобы он совпадал
+    по логике с тем временем, которое приходит из браузера.
+    """
+    return datetime.utcnow() + timedelta(hours=LOCAL_UTC_OFFSET_HOURS)
+
+
 def round_to_next_15(start_time: datetime) -> datetime:
     """
     Округляет время ВВЕРХ до ближайшего 15-минутного интервала.
-    Пример: 15:17 → 15:30, 15:45 → 15:45, 15:00 → 15:00
+    Примеры:
+      15:00:00 -> 15:00:00
+      15:14:59 -> 15:15:00
+      15:17:00 -> 15:30:00
+      15:45:00 -> 15:45:00
+      23:50:00 -> 00:00:00 следующего дня
     """
     minute = start_time.minute
     second = start_time.second
     microsecond = start_time.microsecond
-    
-    # Если уже на 15-минутной границе
+
+    # Если уже идеальная 15-минутка
     if minute % 15 == 0 and second == 0 and microsecond == 0:
-        return start_time
-    
-    # Вычисляем минуты до следующего интервала
-    minutes_to_add = 15 - (minute % 15)
-    
-    # Округляем
-    rounded = start_time.replace(
+        return start_time.replace(second=0, microsecond=0)
+
+    total_minutes = start_time.hour * 60 + minute
+    next_slot = math.ceil(total_minutes / 15) * 15
+
+    # Переход через полночь
+    if next_slot >= 24 * 60:
+        next_slot -= 24 * 60
+        new_date = start_time.date() + timedelta(days=1)
+    else:
+        new_date = start_time.date()
+
+    new_hour = next_slot // 60
+    new_minute = next_slot % 60
+
+    return datetime(
+        year=new_date.year,
+        month=new_date.month,
+        day=new_date.day,
+        hour=new_hour,
+        minute=new_minute,
         second=0,
-        microsecond=0
-    ) + timedelta(minutes=minutes_to_add)
-    
-    return rounded
+        microsecond=0,
+    )
 
-def calculate_15min_slots(start: datetime, end: datetime) -> list:
-    """
-    Разбивает интервал на 15-минутные слоты.
-    Возвращает список времён начала каждого слота.
-    """
-    slots = []
-    current = round_to_next_15(start)
-    end_rounded = round_to_next_15(end)
-    
-    while current < end_rounded:
-        slots.append(current)
-        current += timedelta(minutes=15)
-    
-    return slots
 
-# Тестирующая функция
+# Небольшие тестики, можно запускать отдельно python utils.py
 def test_rounding():
-    """Запусти эту функцию чтобы проверить округление"""
     test_cases = [
-        ("15:17:30", "15:30:00"),
-        ("15:45:00", "15:45:00"),
         ("15:00:00", "15:00:00"),
-        ("15:01:00", "15:15:00"),
-        ("23:50:00", "00:00:00"),  # переход через полночь
+        ("15:14:59", "15:15:00"),
+        ("15:15:00", "15:15:00"),
+        ("15:16:00", "15:30:00"),
+        ("15:29:59", "15:30:00"),
+        ("15:30:00", "15:30:00"),
+        ("15:44:59", "15:45:00"),
+        ("15:45:00", "15:45:00"),
+        ("15:46:00", "16:00:00"),
+        ("23:50:00", "00:00:00"),
     ]
-    
+
     print("🔧 Тестирование округления времени:")
     print("-" * 40)
-    
+
     for input_str, expected_str in test_cases:
-        test_time = datetime.strptime(input_str, "%H:%M:%S")
+        # Берём любую дату, нам важны только часы:минуты:секунды
+        base_date = datetime(2025, 1, 1)
+        h, m, s = map(int, input_str.split(":"))
+        test_time = base_date.replace(hour=h, minute=m, second=s, microsecond=0)
         rounded = round_to_next_15(test_time)
         result = "✅" if rounded.strftime("%H:%M:%S") == expected_str else "❌"
-        
-        print(f"{result} {input_str} → {rounded.strftime('%H:%M:%S')} "
-              f"(ожидалось: {expected_str})")
 
-if __name__ == "__main__":
+        print(
+            f"{result} {input_str} → {rounded.strftime('%H:%M:%S')} "
+            f"(ожидалось: {expected_str})"
+        )
+
+
+if name == "main":
     test_rounding()
