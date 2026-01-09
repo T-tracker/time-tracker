@@ -2,17 +2,18 @@ from datetime import datetime, timedelta
 import math
 
 # Сдвиг относительно UTC.
-# Сейчас у тебя отставание ровно на 3 часа, поэтому +3.
-# Если вдруг поменяешь часовой пояс – поправь это число.
+# Сейчас у тебя всё уезжало на -3 часа, поэтому ставим +3.
+# Если потом заметишь, что нужно +2 или +1 — просто поменяй число здесь.
 LOCAL_UTC_OFFSET_HOURS = 3
 
 
 def get_local_now() -> datetime:
     """
     Текущее ЛОКАЛЬНОЕ время пользователя.
-    Сервер обычно живёт в UTC, поэтому берём utcnow и смещаем.
+
+    Сервер обычно живёт в UTC, поэтому берём utcnow() и смещаем.
     Возвращаем naive datetime (без таймзоны), чтобы он совпадал
-    по логике с тем временем, которое приходит из браузера.
+    по логике с тем временем, которое потом интерпретируется в браузере.
     """
     return datetime.utcnow() + timedelta(hours=LOCAL_UTC_OFFSET_HOURS)
 
@@ -20,6 +21,7 @@ def get_local_now() -> datetime:
 def round_to_next_15(start_time: datetime) -> datetime:
     """
     Округляет время ВВЕРХ до ближайшего 15-минутного интервала.
+
     Примеры:
       15:00:00 -> 15:00:00
       15:14:59 -> 15:15:00
@@ -31,7 +33,7 @@ def round_to_next_15(start_time: datetime) -> datetime:
     second = start_time.second
     microsecond = start_time.microsecond
 
-    # Если уже идеальная 15-минутка
+    # Уже на 15-минутной границе и без секунд/микросекунд — ничего не делаем
     if minute % 15 == 0 and second == 0 and microsecond == 0:
         return start_time.replace(second=0, microsecond=0)
 
@@ -59,7 +61,7 @@ def round_to_next_15(start_time: datetime) -> datetime:
     )
 
 
-# Небольшие тестики, можно запускать отдельно python utils.py
+# Небольшой локальный тест. Можно не трогать.
 def test_rounding():
     test_cases = [
         ("15:00:00", "15:00:00"),
@@ -78,7 +80,7 @@ def test_rounding():
     print("-" * 40)
 
     for input_str, expected_str in test_cases:
-        # Берём любую дату, нам важны только часы:минуты:секунды
+        # Любая дата, нам важны только часы:минуты:секунды
         base_date = datetime(2025, 1, 1)
         h, m, s = map(int, input_str.split(":"))
         test_time = base_date.replace(hour=h, minute=m, second=s, microsecond=0)
@@ -92,4 +94,5 @@ def test_rounding():
 
 
 if name == "main":
+    # это просто локальная проверка, на сервере ни на что не влияет
     test_rounding()
