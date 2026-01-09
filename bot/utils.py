@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 import math
 
 # Сдвиг относительно UTC.
-# Сейчас у тебя всё уезжало на -3 часа, поэтому ставим +3.
-# Если потом заметишь, что нужно +2 или +1 — просто поменяй число здесь.
+# У тебя всё уезжало на -3 часа, поэтому ставим +3.
+# Если потом поймёшь, что нужно +2 или +1 — просто поменяй число здесь.
 LOCAL_UTC_OFFSET_HOURS = 3
 
 
@@ -59,40 +59,3 @@ def round_to_next_15(start_time: datetime) -> datetime:
         second=0,
         microsecond=0,
     )
-
-
-# Небольшой локальный тест. Можно не трогать.
-def test_rounding():
-    test_cases = [
-        ("15:00:00", "15:00:00"),
-        ("15:14:59", "15:15:00"),
-        ("15:15:00", "15:15:00"),
-        ("15:16:00", "15:30:00"),
-        ("15:29:59", "15:30:00"),
-        ("15:30:00", "15:30:00"),
-        ("15:44:59", "15:45:00"),
-        ("15:45:00", "15:45:00"),
-        ("15:46:00", "16:00:00"),
-        ("23:50:00", "00:00:00"),
-    ]
-
-    print("🔧 Тестирование округления времени:")
-    print("-" * 40)
-
-    for input_str, expected_str in test_cases:
-        # Любая дата, нам важны только часы:минуты:секунды
-        base_date = datetime(2025, 1, 1)
-        h, m, s = map(int, input_str.split(":"))
-        test_time = base_date.replace(hour=h, minute=m, second=s, microsecond=0)
-        rounded = round_to_next_15(test_time)
-        result = "✅" if rounded.strftime("%H:%M:%S") == expected_str else "❌"
-
-        print(
-            f"{result} {input_str} → {rounded.strftime('%H:%M:%S')} "
-            f"(ожидалось: {expected_str})"
-        )
-
-
-if name == "main":
-    # это просто локальная проверка, на сервере ни на что не влияет
-    test_rounding()
