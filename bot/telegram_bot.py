@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 from bot.config import BOT_TOKEN
 from bot.states import state_manager
-from bot.utils import round_to_next_15
+from bot.utils import round_to_next_15, get_local_now
 from bot.api_client import api_client
 
 logging.basicConfig(
@@ -191,10 +191,10 @@ async def handle_activity_switch(update: Update, state, new_category=None):
     """
     - Если уже что-то трекается:
         * заканчиваем его в момент сообщения,
-        * округляя конец ВВЕРХ до 15 минут,
+        * округляя конец ВВЕРХ до 15 минут (по локальному времени),
         * сохраняем факт-событие через API.
     - Если передан new_category:
-        * стартуем новую категорию с ВРЕМЕНИ ВВЕРХ до ближайших 15 минут.
+        * стартуем новую категорию с ВРЕМЕНИ ВВЕРХ до ближайших 15 минут (локально).
     - Если new_category=None:
         * просто стопим текущую активность.
     """
@@ -203,7 +203,8 @@ async def handle_activity_switch(update: Update, state, new_category=None):
 
     # 1. Закрываем текущую активность, если она есть
     if state.is_tracking and state.start_time and state.current_category_id:
-        end_time = round_to_next_15(datetime.now())
+        # конец фиксируем по локальному времени пользователя
+        end_time = round_to_next_15(get_local_now())
         start_time = state.start_time
 
         if end_time > start_time:
@@ -230,7 +231,8 @@ async def handle_activity_switch(update: Update, state, new_category=None):
 
     # 2. Стартуем новую активность или стопим
     if new_category:
-        start_t = round_to_next_15(datetime.now())
+        # старт тоже по локальному времени пользователя
+        start_t = round_to_next_15(get_local_now())
         state.start_activity(new_category['id'], new_category['name'], start_t)
         message_parts.append(
             f"🚀 <b>{new_category['name']}</b> начата в {start_t.strftime('%H:%M')}"
