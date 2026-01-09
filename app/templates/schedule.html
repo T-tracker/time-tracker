@@ -174,11 +174,6 @@
     box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
 }
 
-/* Выбранная ячейка (если будешь использовать) */
-.schedule-cell-selected {
-    box-shadow: inset 0 0 0 2px #0ea5e9;
-}
-
 /* Блок события в ячейке */
 .plan-event,
 .fact-event {
@@ -275,13 +270,10 @@
             <small>Кликните по ячейке в колонке <b>План</b> или <b>Факт</b>, чтобы добавить событие</small>
         </div>
         <div class="d-flex align-items-center gap-2 week-nav">
-            <button class="btn btn-outline-secondary btn-sm" id="prevWeekBtn" type="button">
-                &laquo;
-            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="prevWeekBtn" type="button">&laquo;</button>
             <input type="week" class="form-control form-control-sm" id="weekPicker" value="{{ current_week }}">
-            <button class="btn btn-outline-secondary btn-sm" id="nextWeekBtn" type="button">
-                &raquo;
-            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="nextWeekBtn" type="button">&raquo;</button>
+            <button class="btn btn-outline-primary btn-sm" id="todayWeekBtn" type="button">Сегодня</button>
         </div>
     </div>
 
@@ -315,7 +307,7 @@
             </div>
         </div>
 
-        <!-- Правая часть: категории + шаблоны + колесо -->
+        <!-- Правая часть -->
         <div class="col-lg-4">
             <!-- Категории -->
             <div class="card sidebar-card mb-3">
@@ -366,7 +358,7 @@
     </div>
 </div>
 
-<!-- Модальное окно: добавление/редактирование события -->
+<!-- Модальное окно: событие -->
 <div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -432,7 +424,7 @@
     </div>
 </div>
 
-<!-- Модальное окно: создание категории -->
+<!-- Модальное окно: категория -->
 <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form class="modal-content" id="categoryForm">
@@ -450,7 +442,7 @@
                     <input type="color" class="form-control form-control-color" id="categoryColorInput" value="#4361ee">
                 </div>
                 <div class="small-muted">
-                    Можно создавать категории и здесь, и на странице категорий — всё сохраняется в одну и ту же таблицу.
+                    Можно создавать категории и здесь, и в боте — всё сохраняется в одну таблицу.
                 </div>
             </div>
             <div class="modal-footer">
@@ -465,17 +457,15 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- КОНФИГ ---
     const daysCount = {{ days | length }};
     let currentWeekIso = "{{ current_week }}";          // YYYY-Www
     let currentWeekStart = "{{ days[0].full_date }}";   // понедельник недели (YYYY-MM-DD)
-    const SLOT_MINUTES = 15;                            // шаг сетки = 15 минут
+    const SLOT_MINUTES = 15;
 
     let categories = [];
     let currentEvents = [];
     let balanceChart = null;
     let selectedCell = null;
-    let editingEventId = null;
 
     const TEMPLATES_KEY = 'scheduleWeekTemplates';
     let weekTemplates = [];
@@ -485,31 +475,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const balanceCanvas = document.getElementById('balanceWheel');
     const balanceEmptyHint = document.getElementById('balanceEmptyHint');
 
-    // ==== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====
+    // ==== Вспомогательные функции дат ====
 
-    function weekToMondayDateStr(weekStr) {
-        const [yearStr, wStr] = weekStr.split('-W');
-        const year = parseInt(yearStr, 10);
-        const week = parseInt(wStr, 10);
-        const simple = new Date(year, 0, 1 + (week - 1) * 7);
-        const dayOfWeek = simple.getDay() || 7; // 1..7, где 1 — понедельник
-        if (dayOfWeek !== 1) {
-            simple.setDate(simple.getDate() - (dayOfWeek - 1));
-        }
-        return formatDateLocal(simple);
+    function formatDateLocal(date) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        const y = date.getFullYear();
+        const m = pad(date.getMonth() + 1);
+        const d = pad(date.getDate());
+        return `${y}-${m}-${d}`;
     }
 
-    function mondayDateToWeekStr(dateStr) {
-        const d = parseDateOnly(dateStr);
-        const target = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        const dayNum = target.getUTCDay() || 7;
-        target.setUTCDate(target.getUTCDate() + 4 - dayNum);
-        const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-        const weekNo = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
-        return `${target.getUTCFullYear()}-W${weekNo.toString().padStart(2,'0')}`;
+    function parseDateOnly(dateStr) {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d);
     }
 
-    // Локальный ISO без часового пояса: YYYY-MM-DDTHH:MM:SS
     function formatLocalDateTime(date) {
         const pad = (n) => n.toString().padStart(2, '0');
         const year = date.getFullYear();
@@ -520,22 +500,34 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${year}-${month}-${day}T${hours}:${minutes}:00`;
     }
 
-    // Форматирование только даты (локально) для input[type=date]
-    function formatDateLocal(date) {
-        const pad = (n) => n.toString().padStart(2, '0');
-        const y = date.getFullYear();
-        const m = pad(date.getMonth() + 1);
-        const d = pad(date.getDate());
-        return `${y}-${m}-${d}`;
+    function dateToIsoYearWeek(date) {
+        const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        let dayNum = target.getUTCDay();
+        if (dayNum === 0) dayNum = 7;
+        target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+        const weekNo = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+        return { isoYear: target.getUTCFullYear(), isoWeek: weekNo };
     }
 
-    // Парсинг строки вида YYYY-MM-DD как локальной даты
-    function parseDateOnly(dateStr) {
-        const [y, m, d] = dateStr.split('-').map(Number);
-        return new Date(y, m - 1, d);
+    function weekToMondayDateStr(weekStr) {
+        const [yearStr, wStr] = weekStr.split('-W');
+        const year = parseInt(yearStr, 10);
+        const week = parseInt(wStr, 10);
+        const simple = new Date(year, 0, 1 + (week - 1) * 7);
+        const dayOfWeek = simple.getDay() || 7;
+        if (dayOfWeek !== 1) {
+            simple.setDate(simple.getDate() - (dayOfWeek - 1));
+        }
+        return formatDateLocal(simple);
     }
 
-    // Обновление хедера с датами
+    function mondayDateToWeekStr(dateStr) {
+        const d = parseDateOnly(dateStr);
+        const { isoYear, isoWeek } = dateToIsoYearWeek(d);
+        return `${isoYear}-W${isoWeek.toString().padStart(2,'0')}`;
+    }
+
     function updateHeaderDates() {
         const headers = document.querySelectorAll('.day-column-header');
         if (!headers.length || !currentWeekStart) return;
@@ -552,7 +544,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ==== РЕНДЕР СЕТКИ (00:00–23:45, шаг 15 минут) ====
+    // ==== Сетка ====
 
     function renderScheduleTable() {
         scheduleBody.innerHTML = '';
@@ -588,14 +580,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handleCellClick(event, cell) {
         if (event.target.closest('.plan-event, .fact-event')) {
-            // клик по самому событию — обработаем отдельно
             return;
         }
         selectedCell = cell;
         openAddEventForm(cell);
     }
 
-    // ==== КАТЕГОРИИ ====
+    // ==== Категории ====
 
     async function loadCategories() {
         try {
@@ -631,6 +622,7 @@ document.addEventListener('DOMContentLoaded', function() {
         categories.forEach(cat => {
             const pill = document.createElement('span');
             pill.className = 'category-pill';
+
             const dot = document.createElement('span');
             dot.className = 'category-color-dot';
             dot.style.backgroundColor = cat.color || '#6366f1';
@@ -718,7 +710,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ==== ШАБЛОНЫ НЕДЕЛИ (только ПЛАН) ====
+    // ==== Шаблоны недели ====
 
     function loadTemplatesFromStorage() {
         try {
@@ -879,7 +871,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadEvents();
     }
 
-    // ==== СОБЫТИЯ ====
+    // ==== События ====
 
     function loadEvents() {
         const url = currentWeekIso
@@ -889,7 +881,6 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(url)
             .then(response => response.json())
             .then(data => {
-                // очищаем старые
                 document.querySelectorAll('.plan-event, .fact-event').forEach(e => e.remove());
 
                 if (data.week && data.week.start_date) {
@@ -925,7 +916,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const cat = categories.find(c => c.id == event.category_id) || { name: '?', color: '#cbd5f5' };
         const div = document.createElement('div');
         div.className = event.type === 'plan' ? 'plan-event' : 'fact-event';
-        div.style.backgroundColor = (cat.color || '#cbd5f5') + 'aa';
+        div.style.backgroundColor = cat.color || '#cbd5f5';
         div.style.borderColor = cat.color || '#cbd5f5';
         div.textContent = cat.name;
         div.dataset.eventId = event.id;
@@ -990,7 +981,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const payload = {
             category_id: categoryId,
-            start_time: formatLocalDateTime(start),    // без Z / таймзоны
+            start_time: formatLocalDateTime(start),
             end_time: formatLocalDateTime(end),
             type: type,
             source: 'web',
@@ -1014,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadEvents();
     }
 
-    // ==== КОЛЕСО БАЛАНСА (Только ФАКТ) ====
+    // ==== Колесо баланса (только Факт) ====
 
     function drawBalanceWheel(events) {
         const factEvents = (events || []).filter(e => e.type === 'fact');
@@ -1052,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const color = cat && cat.color ? cat.color : '#94a3b8';
             labels.push(cat ? cat.name : `Кат. ${catId}`);
             data.push(value);
-            backgroundColors.push(color + '66');
+            backgroundColors.push(color);
             borderColors.push(color);
         });
 
@@ -1100,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ==== ОТКРЫТИЕ МОДАЛКИ ПО КЛИКУ НА ЯЧЕЙКУ ====
+    // ==== Модалка события ====
 
     function openAddEventForm(cell) {
         const dayIndex = parseInt(cell.dataset.day, 10);
@@ -1116,7 +1107,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const start = new Date(baseDate);
         start.setHours(h, m, 0, 0);
 
-        // длительность по умолчанию = размер ячейки (15 минут)
         const end = new Date(start.getTime() + SLOT_MINUTES * 60000);
 
         const startDateInput = document.getElementById('startDate');
@@ -1131,14 +1121,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         document.getElementById('eventDescription').value = '';
 
-        editingEventId = null;
-
         const modalEl = document.getElementById('addEventModal');
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
     }
 
-    // ==== ПЕРЕКЛЮЧЕНИЕ НЕДЕЛЬ ====
+    // ==== Переключение недель ====
 
     document.getElementById('prevWeekBtn').addEventListener('click', () => {
         const cur = parseDateOnly(currentWeekStart);
@@ -1162,6 +1150,17 @@ document.addEventListener('DOMContentLoaded', function() {
         loadEvents();
     });
 
+    document.getElementById('todayWeekBtn').addEventListener('click', () => {
+        const today = new Date();
+        const { isoYear, isoWeek } = dateToIsoYearWeek(today);
+        currentWeekIso = `${isoYear}-W${isoWeek.toString().padStart(2, '0')}`;
+        weekPicker.value = currentWeekIso;
+        currentWeekStart = weekToMondayDateStr(currentWeekIso);
+        renderScheduleTable();
+        updateHeaderDates();
+        loadEvents();
+    });
+
     weekPicker.addEventListener('change', () => {
         const val = weekPicker.value;
         if (!val) return;
@@ -1172,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadEvents();
     });
 
-    // ==== СВЯЗКА ФОРМ / МОДАЛОВ ====
+    // ==== Связка форм/модалов ====
 
     document.getElementById('addEventForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -1191,7 +1190,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saveTplBtn.addEventListener('click', handleSaveWeekTemplate);
     }
 
-    // ==== ИНИЦИАЛИЗАЦИЯ ====
+    // ==== Инициализация ====
 
     (async function init() {
         weekTemplates = loadTemplatesFromStorage();
