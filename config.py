@@ -7,17 +7,24 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
 
-    # Render/Postgres URL
     db_url = os.environ.get("DATABASE_URL")
 
-    # SQLAlchemy ожидает postgresql://, а Render иногда даёт postgres://
-    if db_url and db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    # Локальный фолбэк
+    if not db_url:
+        SQLALCHEMY_DATABASE_URI = "sqlite:///time_tracker.db"
+        SQLALCHEMY_ENGINE_OPTIONS = {}
+    else:
+        # Render часто отдаёт postgres://..., SQLAlchemy ожидает postgresql://...
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-    # Для Render Postgres обычно нужен SSL
-    if db_url and "sslmode=" not in db_url:
-        joiner = "&" if "?" in db_url else "?"
-        db_url = f"{db_url}{joiner}sslmode=require"
+        SQLALCHEMY_DATABASE_URI = db_url
 
-    # Фолбэк на sqlite для локальной разработки
-    SQLALCHEMY_DATABASE_URI = db_url or "sqlite:///time_tracker.db"
+        # ВАЖНО: SSL и стабильность коннекта задаём через engine options
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "pool_pre_ping": True,       # проверяет соединение перед использованием
+            "pool_recycle": 300,         # пересоздаёт коннекты каждые 5 минут
+            "connect_args": {
+                "sslmode": "require",    # железно требует SSL
+            },
+        }
