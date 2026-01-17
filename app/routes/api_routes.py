@@ -1,198 +1,173 @@
 from flask import Blueprint, request, jsonify
-from flask_login import login_required
 from app import db
-from app.models import User, Category, Event, Template
-from app.auth import telegram_auth_required
+from app.models import User, Category, Event
 from datetime import datetime, timedelta
-from flask_login import current_user
-import re
+from sqlalchemy import func
+from flask_login import login_required, current_user
 
+# Создаем Blueprint. Обрати внимание, префикс /api/v1
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
+
+# ==========================================
+#              WEB ENDPOINTS
+# ==========================================
+
+@api_bp.route('/web/save_schedule', methods=['POST'])
+@login_required
+def save_schedule():
+    """
+    Сохраняет расписание (план) целиком за неделю.
+    Принимает JSON:
+    {
+        "week_start": "2023-10-30",
+        "events": [
+            {"day": 0, "time": "10:00", "category_id": 1},
+            {"day": 1, "time": "14:00", "category_id": 2}
+        ]
+    }
+    """
+    data = request.json
+    week_start_str = data.get('week_start')
+    events_data = data.get('events', [])
+
+    if not week_start_str:
+        return jsonify({'error': 'week_start is required'}), 400
+
+    try:
+        # 1. Определяем границы недели
+        week_start_date = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+        week_start_dt = datetime.combine(week_start_date, datetime.min.time())
+        week_end_dt = week_start_dt + timedelta(days=7)
+
+        # 2. Удаляем СТАРЫЙ ПЛАН (только type='plan') за эту неделю
+        # Мы не трогаем 'fact' (то, что пришло из Телеграма или отмечено как сделанное)
+        db.session.query(Event).filter(
+            Event.user_id == current_user.id,
+            Event.start_time >= week_start_dt,
+            Event.start_time < week_end_dt,
+            Event.type == 'plan',
+            Event.source == 'web'  # Удаляем только то, что создано в вебе
+        ).delete()
+
+        # 3. Создаем НОВЫЕ события
+        new_events = []
+        for item in events_data:
+            day_index = int(item['day'])  # 0 = Понедельник
+            time_str = item['time']       # "09:00"
+            category_id = int(item['category_id'])
+
+            # Вычисляем точную дату и время начала
+            event_date = week_start_date + timedelta(days=day_index)
+            start_dt = datetime.combine(event_date, datetime.strptime(time_str, "%H:%M").time())
+            
+            # По умолчанию событие длится 1 час (для сетки)
+            end_dt = start_dt + timedelta(hours=1)
+
+            event = Event(
+                user_id=current_user.id,
+                category_id=category_id,
+                start_time=start_dt,
+                end_time=end_dt,
+                type='plan',   # Это план
+                source='web'
+            )
+            db.session.add(event)
+            new_events.append(event)
+
+        db.session.commit()
+        print(f"✅ Saved {len(new_events)} events for user {current_user.username}")
+        return jsonify({'status': 'success', 'count': len(new_events)}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error saving schedule: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==========================================
+#            TELEGRAM ENDPOINTS
+# ==========================================
 
 @api_bp.route('/telegram/auth', methods=['POST'])
 def telegram_auth():
-    """Авторизация/регистрация через Telegram"""
     data = request.json
+    telegram_id = str(data.get('telegram_id'))
+    username = data.get('username', '').strip()
     
-    telegram_id = data.get('telegram_id')
-    username = data.get('username')
-    
-    if not telegram_id:
-        return jsonify({'error': 'telegram_id required'}), 400
-    
-    # Ищем пользователя
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    
-    if user:
-        # Пользователь уже существует
+    print(f"🔐 Auth attempt: ID={telegram_id}, Name={username}")
+
+    user_final = None
+
+    # 1. Ищем по имени
+    if username:
+        user_by_name = User.query.filter(func.lower(User.username) == func.lower(username)).first()
+        if user_by_name:
+            # Отвязываем старого пользователя от этого ID, если был
+            conflict_user = User.query.filter_by(telegram_id=telegram_id).first()
+            if conflict_user and conflict_user.id != user_by_name.id:
+                conflict_user.telegram_id = None
+                db.session.add(conflict_user)
+            
+            # Привязываем
+            user_by_name.telegram_id = telegram_id
+            db.session.add(user_by_name)
+            db.session.commit()
+            user_final = user_by_name
+
+    # 2. Ищем по ID
+    if not user_final:
+        user_final = User.query.filter_by(telegram_id=telegram_id).first()
+
+    if user_final:
         return jsonify({
-            'status': 'authenticated',
-            'user_id': user.id,
-            'username': user.username,
-            'has_categories': Category.query.filter_by(user_id=user.id).count() > 0
+            'status': 'authenticated', 
+            'user_id': user_final.id, 
+            'username': user_final.username
         }), 200
-    else:
-        # Новый пользователь - нужно зарегистрироваться через веб
-        return jsonify({
-            'status': 'needs_registration',
-            'message': 'Please complete registration via web interface first',
-            'registration_url': f'https://time-tracker-z6co.onrender.com/register?telegram_id={telegram_id}'
-        }), 404
+    
+    return jsonify({'status': 'needs_registration'}), 404
 
 @api_bp.route('/telegram/categories', methods=['GET'])
-@telegram_auth_required
 def telegram_categories():
-    """Получить категории пользователя для Telegram-бота"""
-    user = request.current_user
-    categories = Category.query.filter_by(user_id=user.id).all()
-    
-    # Формат для inline-клавиатуры Telegram
-    return jsonify({
-        'categories': [{
-            'id': cat.id,
-            'name': cat.name,
-            'color': cat.color
-        } for cat in categories],
-        'quick_replies': [
-            {'text': cat.name, 'callback_data': f'cat_{cat.id}'}
-            for cat in categories[:10]  # Ограничение для Telegram
-        ]
-    })
+    telegram_id = request.args.get('telegram_id')
+    if not telegram_id:
+        return jsonify({'categories': []}), 400
 
-@api_bp.route('/telegram/events', methods=['POST'])
-@telegram_auth_required
-def telegram_create_event():
-    """Создать событие из Telegram-бота"""
-    user = request.current_user
+    user = User.query.filter_by(telegram_id=str(telegram_id)).first()
+    if not user:
+        return jsonify({'categories': []}), 404
+
+    cats = Category.query.filter_by(user_id=user.id).all()
+    cats.sort(key=lambda x: x.id, reverse=True)
+    
+    result = [{'id': c.id, 'name': c.name, 'color': c.color} for c in cats]
+    return jsonify({'categories': result})
+
+@api_bp.route('/telegram/event', methods=['POST'])
+def create_telegram_event():
     data = request.json
+    telegram_id = str(data.get('telegram_id'))
     
-    # Поддержка разных форматов ввода времени
-    time_input = data.get('time', '')
-    category_id = data.get('category_id')
-    event_type = data.get('type', 'fact')  # По умолчанию факт
-    
-    # Парсинг времени (пример: "14:30-16:00" или "2 часа")
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+        
     try:
-        if '-' in time_input:
-            # Формат "14:30-16:00"
-            start_str, end_str = time_input.split('-')
-            start_time = parse_time(start_str.strip())
-            end_time = parse_time(end_str.strip())
-        else:
-            # Формат "2 часа" или "90 минут"
-            duration = parse_duration(time_input)
-            start_time = datetime.utcnow()
-            end_time = start_time + duration
-    except ValueError as e:
-        return jsonify({'error': f'Invalid time format: {str(e)}'}), 400
-    
-    # Проверяем, что категория принадлежит пользователю
-    category = Category.query.filter_by(
-        id=category_id, 
-        user_id=user.id
-    ).first()
-    
-    if not category:
-        return jsonify({'error': 'Category not found'}), 404
-    
-    # Создаем событие
-    event = Event(
-        user_id=user.id,
-        category_id=category_id,
-        type=event_type,
-        start_time=start_time,
-        end_time=end_time,
-        source='telegram'
-    )
-    
-    db.session.add(event)
-    db.session.commit()
-    
-    return jsonify({
-        'status': 'success',
-        'event_id': event.id,
-        'message': f'Event added: {category.name} ({event_type})'
-    }), 201
+        start = datetime.fromisoformat(data['start_time'])
+        end = datetime.fromisoformat(data['end_time'])
 
-@api_bp.route('/telegram/quick', methods=['POST'])
-@telegram_auth_required
-def telegram_quick_event():
-    """Быстрое создание события (например, по коду категории)"""
-    user = request.current_user
-    data = request.json
-    
-    code = data.get('code')  # Например, "ПАРА" или "ОБЕД"
-    duration_minutes = data.get('duration', 90)  # По умолчанию 1,5 час
-    
-    # Ищем категорию по коду/сокращению
-    category = Category.query.filter_by(user_id=user.id).filter(
-        (Category.name.ilike(f'%{code}%')) |
-        (db.func.lower(Category.name) == code.lower())
-    ).first()
-    
-    if not category:
-        return jsonify({'error': f'Category not found for code: {code}'}), 404
-    
-    # Создаем событие
-    start_time = datetime.utcnow()
-    end_time = start_time + timedelta(minutes=int(duration_minutes))
-    
-    event = Event(
-        user_id=user.id,
-        category_id=category.id,
-        type='fact',
-        start_time=start_time,
-        end_time=end_time,
-        source='telegram_quick'
-    )
-    
-    db.session.add(event)
-    db.session.commit()
-    
-    return jsonify({
-        'status': 'success',
-        'category': category.name,
-        'duration': duration_minutes
-    })
-
-# Вспомогательные функции для парсинга времени
-def parse_time(time_str):
-    """Парсинг времени в формате '14:30' или '2:30 PM'"""
-    # Простая реализация
-    if ':' in time_str:
-        hours, minutes = map(int, time_str.split(':'))
-        now = datetime.utcnow()
-        return now.replace(hour=hours % 24, minute=minutes, second=0, microsecond=0)
-    raise ValueError(f"Can't parse time: {time_str}")
-
-def parse_duration(duration_str):
-    """Парсинг длительности '2 часа', '90 минут' и т.д."""
-    duration_str = duration_str.lower()
-    
-    if 'час' in duration_str or 'hour' in duration_str:
-        hours = float(re.search(r'[\d.]+', duration_str).group())
-        return timedelta(hours=hours)
-    elif 'мин' in duration_str or 'min' in duration_str:
-        minutes = float(re.search(r'[\d.]+', duration_str).group())
-        return timedelta(minutes=minutes)
-    else:
-        # По умолчанию считаем минутами
-        minutes = float(re.search(r'[\d.]+', duration_str).group())
-        return timedelta(minutes=minutes)
-
-@api_bp.route('/templates/<int:template_id>', methods=['DELETE'])
-@login_required
-def delete_template(template_id):
-    """Удалить шаблон"""
-    template = Template.query.filter_by(
-        id=template_id,
-        user_id=current_user.id
-    ).first()
-    
-    if not template:
-        return jsonify({'status': 'error', 'message': 'Шаблон не найден'}), 404
-    
-    db.session.delete(template)
-    db.session.commit()
-    
-    return jsonify({'status': 'success', 'message': 'Шаблон удален'})
+        event = Event(
+            user_id=user.id,
+            category_id=data['category_id'],
+            start_time=start,
+            end_time=end,
+            type='fact',    # Из телеграма всегда приходит ФАКТ
+            source='telegram'
+        )
+        
+        db.session.add(event)
+        db.session.commit()
+        return jsonify({'status': 'success', 'id': event.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
