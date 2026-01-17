@@ -31,9 +31,9 @@ def create_app():
     app.register_blueprint(schedule_api_bp, url_prefix="/api/v1")
 
     with app.app_context():
-        from app.models import User  # чтобы модели зарегистрировались
+        from app.models import User  # важно импортировать здесь, чтобы модели были зарегистрированы
 
-        def wait_for_db(max_attempts=15, sleep_seconds=2):
+        def wait_for_db(max_attempts=20, sleep_seconds=2):
             for attempt in range(1, max_attempts + 1):
                 try:
                     db.session.execute(text("SELECT 1"))
@@ -48,14 +48,14 @@ def create_app():
         if not db_ready:
             print("❌ БД не поднялась — пропускаем db.create_all() и миграции")
         else:
-            # 1) create_all
+            # 1) Создаём таблицы
             try:
                 db.create_all()
                 print("✅ db.create_all() ok")
             except Exception as e:
                 print(f"❌ Ошибка при db.create_all(): {e}")
 
-            # 2) лёгкие миграции (DDL) — выполняем только если БД доступна
+            # 2) Мягкие миграции
             def ensure_column(table: str, column: str, ddl: str):
                 try:
                     result = db.session.execute(
