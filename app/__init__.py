@@ -14,6 +14,47 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object("config.Config")
 
+    # --- Пытаемся перейти на Postgres, но если не выходит — остаёмся на SQLite ---
+    postgres_uri = app.config.get("POSTGRES_DATABASE_URI")
+
+    if postgres_uri:
+        # Попробуем несколько раз проверить коннект к Postgres
+        def postgres_is_alive(max_attempts=5, sleep_seconds=2) -> bool:
+            from sqlalchemy import create_engine
+            engine = create_engine(
+                postgres_uri,
+                pool_pre_ping=True,
+                pool_recycle=300,
+                connect_args={
+                    "sslmode": "require",
+                    "connect_timeout": 10,
+                },
+            )
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    with engine.connect() as conn:
+                        conn.execute(text("SELECT 1"))
+                    return True
+                except Exception as e:
+                    print(f"⏳ Postgres недоступен (попытка {attempt}/{max_attempts}): {e}")
+                    time.sleep(sleep_seconds)
+            return False
+
+        if postgres_is_alive():
+            app.config["SQLALCHEMY_DATABASE_URI"] = postgres_uri
+            app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+                "pool_pre_ping": True,
+                "pool_recycle": 300,
+                "connect_args": {
+                    "sslmode": "require",
+                    "connect_timeout": 10,
+                },
+            }
+            print("✅ Используем Postgres")
+        else:
+            print("⚠️ Postgres недоступен — запускаемся на SQLite временно")
+
+    # --- Инициализация расширений ---
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"
@@ -31,64 +72,14 @@ def create_app():
     app.register_blueprint(schedule_api_bp, url_prefix="/api/v1")
 
     with app.app_context():
-        from app.models import User  # важно импортировать здесь, чтобы модели были зарегистрированы
+        from app.models import User
 
-        def wait_for_db(max_attempts=20, sleep_seconds=2):
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    db.session.execute(text("SELECT 1"))
-                    return True
-                except OperationalError as e:
-                    print(f"⏳ БД недоступна (попытка {attempt}/{max_attempts}): {e}")
-                    time.sleep(sleep_seconds)
-            return False
-
-        db_ready = wait_for_db()
-
-        if not db_ready:
-            print("❌ БД не поднялась — пропускаем db.create_all() и миграции")
-        else:
-            # 1) Создаём таблицы
-            try:
-                db.create_all()
-                print("✅ db.create_all() ok")
-            except Exception as e:
-                print(f"❌ Ошибка при db.create_all(): {e}")
-
-            # 2) Мягкие миграции
-            def ensure_column(table: str, column: str, ddl: str):
-                try:
-                    result = db.session.execute(
-                        text("""
-                            SELECT column_name
-                            FROM information_schema.columns
-                            WHERE table_name=:t AND column_name=:c
-                        """),
-                        {"t": table, "c": column}
-                    ).fetchone()
-
-                    if not result:
-                        db.session.execute(text(ddl))
-                        db.session.commit()
-                        print(f"✅ Column '{column}' added to {table}")
-                except Exception as e:
-                    db.session.rollback()
-                    print(f"ℹ️ {table}.{column} migration skipped: {e}")
-
-            ensure_column("categories", "description",
-                          "ALTER TABLE categories ADD COLUMN description TEXT")
-
-            ensure_column("events", "description",
-                          "ALTER TABLE events ADD COLUMN description TEXT")
-
-            ensure_column("templates", "category_id",
-                          "ALTER TABLE templates ADD COLUMN category_id INTEGER REFERENCES categories(id)")
-
-            ensure_column("templates", "duration_minutes",
-                          "ALTER TABLE templates ADD COLUMN duration_minutes INTEGER DEFAULT 60")
-
-            ensure_column("templates", "description",
-                          "ALTER TABLE templates ADD COLUMN description TEXT")
+        # Создаём таблицы в той БД, которую выбрали (SQLite или Postgres)
+        try:
+            db.create_all()
+            print("✅ db.create_all() ok")
+        except Exception as e:
+            print(f"❌ Ошибка при db.create_all(): {e}")
 
         @login_manager.user_loader
         def load_user(user_id):
