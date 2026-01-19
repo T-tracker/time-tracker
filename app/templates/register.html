@@ -12,7 +12,7 @@
                     <p class="text-muted">Зарегистрируйтесь для начала использования Time Tracker</p>
                 </div>
                 
-                <form method="POST" action="{{ url_for('main.register') }}">
+                <form method="POST" action="{{ url_for('auth.register') }}">
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="username" class="form-label">
@@ -75,7 +75,7 @@
                     
                     <div class="text-center mt-4">
                         <p class="mb-0">Уже есть аккаунт?</p>
-                        <a href="{{ url_for('main.login') }}" class="btn btn-link">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-link">
                             <i class="bi bi-box-arrow-in-right me-1"></i>Войти в существующий
                         </a>
                     </div>
@@ -87,9 +87,9 @@
             <div class="card-body">
                 <h6><i class="bi bi-info-circle me-2"></i>О регистрации:</h6>
                 <ul class="mb-0">
-                    <li>После регистрации вы автоматически войдете в систему</li>
+                    <li>После регистрации вы не входите автоматически — выполните вход на странице логина</li>
                     <li>Telegram ID можно добавить или изменить позже в профиле</li>
-                    <li>Все данные хранятся в защищенной базе данных PostgreSQL</li>
+                    <li>Если Postgres временно недоступен, сервис может работать в режиме SQLite</li>
                 </ul>
             </div>
         </div>
